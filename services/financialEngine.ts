@@ -15,7 +15,7 @@ export const calculateStats = (employees: Employee[], tuitionIncrease: number): 
   const dodatniPrihod = BASELINE_REVENUE_2025 * (tuitionIncrease / 100);
 
   // 2. Ukupni Bruto trošak povišica
-  // Formula: (ciljaniNeto - trenutniNeto) * 1.63
+  // Formula: (targetNet - currentNet) * 1.63
   const ukupniTrosakPovisicaBruto = employees.reduce((sum, emp) => {
     const raise = emp.targetNet - emp.currentNet;
     return sum + (raise * BRUTO_FACTOR);
@@ -24,7 +24,7 @@ export const calculateStats = (employees: Employee[], tuitionIncrease: number): 
   // 3. Sigurnosna rezerva
   const cistaDobit = dodatniPrihod - ukupniTrosakPovisicaBruto;
 
-  // 4. Analiza po kategorijama
+  // 4. Analiza po kategorijama za Waterfall
   const categoryLabels: Record<string, string> = {
     'A': 'Uprava i Pedagogija',
     'B': 'Odgajatelji',
