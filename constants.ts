@@ -25,3 +25,9 @@ export const INITIAL_EMPLOYEES: Employee[] = [
 
 export const BASELINE_REVENUE_2025 = 876563.23;
 export const BRUTO_FACTOR = 1.63;
+export const LOYALTY_RULES = [
+  { years: 10, bonus: 15 },
+  { years: 5, bonus: 10 },
+  { years: 2, bonus: 4 },
+  { years: 0, bonus: 0 }
+];

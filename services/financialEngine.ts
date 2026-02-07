@@ -1,30 +1,23 @@
 
 import { Employee, FinancialStats, CategorySummary } from '../types';
-import { BRUTO_FACTOR, BASELINE_REVENUE_2025 } from '../constants';
+import { BRUTO_FACTOR, BASELINE_REVENUE_2025, LOYALTY_RULES } from '../constants';
 
 export const calculateLoyaltyBonus = (startYear: number): number => {
   const years = 2026 - startYear;
-  if (years >= 10) return 15;
-  if (years >= 5) return 10;
-  if (years >= 2) return 4;
-  return 0;
+  const rule = LOYALTY_RULES.find(r => years >= r.years);
+  return rule ? rule.bonus : 0;
 };
 
 export const calculateStats = (employees: Employee[], tuitionIncrease: number): FinancialStats => {
-  // 1. Dodatni prihod od školarina
   const dodatniPrihod = BASELINE_REVENUE_2025 * (tuitionIncrease / 100);
 
-  // 2. Ukupni Bruto trošak povišica
-  // Formula: (targetNet - currentNet) * 1.63
   const ukupniTrosakPovisicaBruto = employees.reduce((sum, emp) => {
     const raise = emp.targetNet - emp.currentNet;
     return sum + (raise * BRUTO_FACTOR);
   }, 0);
 
-  // 3. Sigurnosna rezerva
   const cistaDobit = dodatniPrihod - ukupniTrosakPovisicaBruto;
 
-  // 4. Analiza po kategorijama za Waterfall
   const categoryLabels: Record<string, string> = {
     'A': 'Uprava i Pedagogija',
     'B': 'Odgajatelji',
@@ -45,9 +38,9 @@ export const calculateStats = (employees: Employee[], tuitionIncrease: number): 
   });
 
   return {
-    dodatniPrihod,
-    ukupniTrosakPovisicaBruto,
-    cistaDobit,
+    dodatniPrihod: Number(dodatniPrihod.toFixed(2)),
+    ukupniTrosakPovisicaBruto: Number(ukupniTrosakPovisicaBruto.toFixed(2)),
+    cistaDobit: Number(cistaDobit.toFixed(2)),
     isSustainable: cistaDobit >= 0,
     categorySummaries
   };
