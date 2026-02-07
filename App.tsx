@@ -17,7 +17,13 @@ import {
   Target, 
   FileCheck, 
   Zap, 
-  CheckCircle2
+  CheckCircle2,
+  PieChart,
+  Filter,
+  GraduationCap,
+  LayoutGrid,
+  CalendarDays,
+  BarChart3
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -57,8 +63,55 @@ const App: React.FC = () => {
   const [tuitionIncrease, setTuitionIncrease] = useState<number>(6);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
+  
+  // State za filtriranje
+  const [activeCatFilter, setActiveCatFilter] = useState<'ALL' | 'CD' | 'AB'>('ALL');
+  const [activeMaFilter, setActiveMaFilter] = useState<'ALL' | 'MA_ONLY' | 'NO_MA'>('ALL');
+  const [activeYearFilter, setActiveYearFilter] = useState<'ALL' | 'BEFORE_2020' | 'AFTER_2020'>('ALL');
 
   const stats = useMemo(() => calculateStats(employees, tuitionIncrease), [employees, tuitionIncrease]);
+
+  // Podaci za novi grafikon po godinama (lojalnosti)
+  const loyaltyCostData = useMemo(() => {
+    const groups = [
+      { label: '≤ 2016 (10+ god)', filter: (y: number) => y <= 2016, color: '#064e3b' },
+      { label: '2017-2021 (5-10 god)', filter: (y: number) => y >= 2017 && y <= 2021, color: '#059669' },
+      { label: '2022-2024 (2-5 god)', filter: (y: number) => y >= 2022 && y <= 2024, color: '#10b981' },
+      { label: '2025+ (< 2 god)', filter: (y: number) => y >= 2025, color: '#34d399' },
+    ];
+
+    return groups.map(g => {
+      const groupEmployees = employees.filter(e => g.filter(e.start));
+      const totalBrutoRaise = groupEmployees.reduce((sum, e) => sum + (e.targetNet - e.currentNet) * BRUTO_FACTOR, 0);
+      return {
+        period: g.label,
+        iznos: Number(totalBrutoRaise.toFixed(2)),
+        boja: g.color
+      };
+    });
+  }, [employees]);
+
+  // Kombinovana logika filtriranja
+  const visibleEmployees = useMemo(() => {
+    return employees.filter(e => {
+      // Filter po kategoriji
+      let passCat = true;
+      if (activeCatFilter === 'CD') passCat = (e.cat === 'C' || e.cat === 'D');
+      if (activeCatFilter === 'AB') passCat = (e.cat === 'A' || e.cat === 'B');
+      
+      // Filter po MA statusu
+      const passMa = activeMaFilter === 'ALL' || 
+                    (activeMaFilter === 'MA_ONLY' && e.ma) || 
+                    (activeMaFilter === 'NO_MA' && !e.ma);
+
+      // Filter po godini početka rada
+      let passYear = true;
+      if (activeYearFilter === 'BEFORE_2020') passYear = e.start < 2020;
+      if (activeYearFilter === 'AFTER_2020') passYear = e.start > 2020;
+      
+      return passCat && passMa && passYear;
+    });
+  }, [employees, activeCatFilter, activeMaFilter, activeYearFilter]);
 
   const totals = useMemo(() => {
     const totalCurrentNet = employees.reduce((sum, e) => sum + e.currentNet, 0);
@@ -207,7 +260,7 @@ const App: React.FC = () => {
         <div className="xl:col-span-4">
           <div className="p-12 rounded-[4rem] border-8 border-black bg-white shadow-2xl flex flex-col h-full min-h-[650px]">
              <h2 className="text-xl font-black uppercase tracking-[0.4em] text-black mb-12">TOK KAPITALA</h2>
-             <div className="flex-1 w-full">
+             <div className="flex-1 w-full min-h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={waterfallData} margin={{top: 20, right: 20, left: 0, bottom: 40}}>
                     <CartesianGrid strokeDasharray="8 8" vertical={false} stroke="#E2E8F0" />
@@ -234,9 +287,12 @@ const App: React.FC = () => {
         <div className="bg-white border-8 border-black rounded-[4rem] shadow-2xl overflow-hidden flex flex-col w-full">
           <div className="p-10 border-b-8 border-black flex justify-between items-center bg-slate-50">
              <h3 className="text-3xl font-black uppercase tracking-[0.3em] flex items-center gap-6">
-               <Users size={48} /> MATRICA ZAPOSLENIKA
+               <Users size={48} /> MATRICA ZAPOSLENIKA 
+               {activeCatFilter !== 'ALL' && <span className="text-emerald-600 text-sm ml-2 font-mono tracking-normal">(CAT {activeCatFilter})</span>}
+               {activeMaFilter !== 'ALL' && <span className="text-emerald-600 text-sm ml-2 font-mono tracking-normal">({activeMaFilter === 'MA_ONLY' ? 'MA' : 'NO MA'})</span>}
+               {activeYearFilter !== 'ALL' && <span className="text-emerald-600 text-sm ml-2 font-mono tracking-normal">({activeYearFilter === 'BEFORE_2020' ? '< 2020' : '> 2020'})</span>}
              </h3>
-             <span className="text-lg text-black font-black uppercase tracking-widest border-4 border-black px-8 py-4 rounded-full bg-white shadow-md">19 POZICIJA</span>
+             <span className="text-lg text-black font-black uppercase tracking-widest border-4 border-black px-8 py-4 rounded-full bg-white shadow-md">{visibleEmployees.length} POZICIJA PRIKAZANO</span>
           </div>
           
           <div className="overflow-x-auto">
@@ -252,7 +308,7 @@ const App: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y-4 divide-slate-100">
-                {employees.map((emp) => {
+                {visibleEmployees.map((emp) => {
                   const loyalty = calculateLoyaltyBonus(emp.start);
                   const raiseNet = emp.targetNet - emp.currentNet;
                   const raiseBruto = raiseNet * BRUTO_FACTOR;
@@ -301,6 +357,202 @@ const App: React.FC = () => {
                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mt-4 italic">FINALNI MJESEČNI TROŠAK STRATEGIJE</span>
              </div>
           </div>
+        </div>
+      </div>
+
+      {/* ZBIRNI TROŠKOVI PO GRUPAMA */}
+      <div className="w-full mb-16 relative z-10">
+        <h3 className="text-4xl font-black uppercase tracking-[0.4em] text-black mb-10 flex items-center gap-6">
+          <PieChart size={40} /> ZBIRNI TROŠKOVI PO GRUPAMA
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+          {stats.categorySummaries.map((catSum) => (
+            <div key={catSum.cat} className="p-10 rounded-[3rem] border-8 border-black bg-white shadow-2xl flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300">
+              <div>
+                <div className="flex justify-between items-start mb-6">
+                  <span className="bg-black text-white px-6 py-2 rounded-full font-black text-2xl">{catSum.cat}</span>
+                  <div className="flex flex-col items-end">
+                    <span className="text-xs font-black uppercase tracking-widest text-slate-400">{catSum.count} zaposlenika</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Teret povišica</span>
+                  </div>
+                </div>
+                <h4 className="text-2xl font-black uppercase leading-tight mb-8 min-h-[4rem] flex items-center">{catSum.label}</h4>
+              </div>
+              <div className="border-t-4 border-slate-100 pt-6 mt-4">
+                <LocalFormattedCurrency value={catSum.totalRaiseCostBruto} className="text-4xl font-black" />
+                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2 italic">UKUPNO BRUTO (1.63)</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* KUMULATIVNI BRUTO TROŠAK PO PERIODU ZAPOSLENJA (LOJALNOSTI) */}
+      <div className="w-full mb-16 relative z-10">
+        <div className="p-12 rounded-[4rem] border-8 border-black bg-white shadow-2xl flex flex-col min-h-[500px]">
+          <h3 className="text-3xl font-black uppercase tracking-[0.4em] text-black mb-12 flex items-center gap-6">
+            <BarChart3 size={40} /> TERET PO STUBU LOJALNOSTI (BRUTO)
+          </h3>
+          <div className="flex-1 w-full">
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={loyaltyCostData} margin={{top: 20, right: 30, left: 60, bottom: 20}}>
+                <CartesianGrid strokeDasharray="10 10" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                  dataKey="period" 
+                  fontSize={14} 
+                  fontWeight="900" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  dy={15} 
+                  stroke="#000"
+                />
+                <YAxis 
+                  fontSize={12} 
+                  fontWeight="700" 
+                  axisLine={false} 
+                  tickLine={false}
+                  tickFormatter={(val) => `${(val / 1000).toFixed(1)}k`}
+                />
+                <Tooltip 
+                  cursor={{fill: 'rgba(0,0,0,0.02)'}} 
+                  contentStyle={{ borderRadius: '2rem', border: '4px solid black', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', padding: '20px' }}
+                  formatter={(val: number) => [<LocalFormattedCurrency value={val} className="text-xl" />, 'Kumulativni Bruto']}
+                />
+                <Bar dataKey="iznos" radius={[20, 20, 0, 0]} barSize={120}>
+                  {loyaltyCostData.map((entry, index) => (
+                    <Cell key={`cell-loyalty-${index}`} fill={entry.boja} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-8 flex justify-center gap-10">
+            {loyaltyCostData.map((entry, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="w-4 h-4 rounded-full" style={{backgroundColor: entry.boja}} />
+                <span className="text-xs font-black uppercase tracking-widest">{entry.period}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* FILTER DUGMADI ZA MATRICU */}
+      <div className="w-full mb-16 relative z-10">
+        <div className="bg-slate-50 border-8 border-black rounded-[4rem] p-12 flex flex-col gap-12 shadow-2xl">
+          
+          {/* Grupa 1: Kategorije */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-12 border-b-4 border-black/5 pb-10">
+            <div className="flex items-center gap-8">
+              <Filter size={48} className="text-black" />
+              <div className="flex flex-col">
+                <h3 className="text-3xl font-black uppercase tracking-widest leading-none">FILTRIRANJE KATEGORIJA</h3>
+                <p className="text-sm font-black text-slate-500 uppercase tracking-widest mt-2">Prikaz specifičnih departmana</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-8 w-full md:w-auto justify-end">
+              <button 
+                onClick={() => setActiveCatFilter('ALL')}
+                className={`flex-1 md:px-12 py-6 rounded-3xl font-black text-xl uppercase tracking-widest transition-all shadow-xl active:scale-95 ${activeCatFilter === 'ALL' ? 'bg-black text-white scale-105 ring-8 ring-slate-200' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
+              >
+                SVE KATEGORIJE
+              </button>
+              <button 
+                onClick={() => setActiveCatFilter('CD')}
+                className={`flex-1 md:px-12 py-6 rounded-3xl font-black text-xl uppercase tracking-widest transition-all shadow-xl active:scale-95 ${activeCatFilter === 'CD' ? 'bg-emerald-600 text-white scale-105 ring-8 ring-emerald-100' : 'bg-white text-emerald-600 border-4 border-emerald-600 hover:bg-emerald-50'}`}
+              >
+                SAMO C I D
+              </button>
+            </div>
+          </div>
+
+          {/* Grupa 2: Uprava i Odgajatelji (A&B) */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-12 border-b-4 border-black/5 pb-10">
+            <div className="flex items-center gap-8">
+              <LayoutGrid size={48} className="text-black" />
+              <div className="flex flex-col">
+                <h3 className="text-3xl font-black uppercase tracking-widest leading-none">UPRAVA I ODGAJATELJI (A&B)</h3>
+                <p className="text-sm font-black text-slate-500 uppercase tracking-widest mt-2">Strateško filtriranje kategorija A i B</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-8 w-full md:w-auto justify-end">
+              <button 
+                onClick={() => setActiveCatFilter('AB')}
+                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeCatFilter === 'AB' ? 'bg-black text-white scale-105 ring-4 ring-slate-200' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
+              >
+                SAMO A I B
+              </button>
+              <button 
+                onClick={() => setActiveCatFilter('CD')}
+                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeCatFilter === 'CD' ? 'bg-black text-white scale-105 ring-4 ring-red-400' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
+              >
+                SAKRIJ A I B
+              </button>
+            </div>
+          </div>
+
+          {/* Grupa 3: MA Status */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-12 border-b-4 border-black/5 pb-10">
+            <div className="flex items-center gap-8">
+              <GraduationCap size={48} className="text-black" />
+              <div className="flex flex-col">
+                <h3 className="text-3xl font-black uppercase tracking-widest leading-none">MA STATUS (EKSPERTIZA)</h3>
+                <p className="text-sm font-black text-slate-500 uppercase tracking-widest mt-2">Filtriranje po magistarskom zvanju</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-8 w-full md:w-auto justify-end">
+              <button 
+                onClick={() => setActiveMaFilter('ALL')}
+                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeMaFilter === 'ALL' ? 'bg-black text-white scale-105 ring-4 ring-slate-200' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
+              >
+                SVI STATUSI
+              </button>
+              <button 
+                onClick={() => setActiveMaFilter('MA_ONLY')}
+                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeMaFilter === 'MA_ONLY' ? 'bg-black text-white scale-105 ring-4 ring-emerald-400' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
+              >
+                SVE SA MA
+              </button>
+              <button 
+                onClick={() => setActiveMaFilter('NO_MA')}
+                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeMaFilter === 'NO_MA' ? 'bg-black text-white scale-105 ring-4 ring-red-400' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
+              >
+                SAMO BEZ MA
+              </button>
+            </div>
+          </div>
+
+          {/* Grupa 4: Godina početka rada */}
+          <div className="flex flex-col md:flex-row items-center justify-between gap-12 pt-4">
+            <div className="flex items-center gap-8">
+              <CalendarDays size={48} className="text-black" />
+              <div className="flex flex-col">
+                <h3 className="text-3xl font-black uppercase tracking-widest leading-none">GODINA POČETKA RADA</h3>
+                <p className="text-sm font-black text-slate-500 uppercase tracking-widest mt-2">Filtriranje po stažu (prije/poslije 2020.)</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-8 w-full md:w-auto justify-end">
+              <button 
+                onClick={() => setActiveYearFilter('ALL')}
+                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeYearFilter === 'ALL' ? 'bg-black text-white scale-105 ring-4 ring-slate-200' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
+              >
+                SVE GODINE
+              </button>
+              <button 
+                onClick={() => setActiveYearFilter('BEFORE_2020')}
+                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeYearFilter === 'BEFORE_2020' ? 'bg-black text-white scale-105 ring-4 ring-emerald-400' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
+              >
+                PRIJE 2020.
+              </button>
+              <button 
+                onClick={() => setActiveYearFilter('AFTER_2020')}
+                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeYearFilter === 'AFTER_2020' ? 'bg-black text-white scale-105 ring-4 ring-indigo-400' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
+              >
+                POSLIJE 2020.
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
 
