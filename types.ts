@@ -12,24 +12,15 @@ export interface Employee {
 
 export interface CategorySummary {
   cat: 'A' | 'B' | 'C' | 'D';
+  label: string;
   count: number;
-  totalNewGross: number;
+  totalRaiseCostBruto: number;
 }
 
 export interface FinancialStats {
-  totalCurrentNet: number;
-  totalNewNet: number;
-  totalCurrentGross: number;
-  totalNewGross: number;
-  grossIncrease: number;
-  revenueGrowth: number;
+  dodatniPrihod: number;
+  ukupniTrosakPovisicaBruto: number;
+  cistaDobit: number;
   isSustainable: boolean;
-  operationalBuffer: number;
   categorySummaries: CategorySummary[];
-}
-
-export interface Pricing {
-  local: number;
-  foreign: number;
-  canteen: number;
 }

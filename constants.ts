@@ -1,12 +1,12 @@
 
-import { Employee, Pricing } from './types';
+import { Employee } from './types';
 
 export const INITIAL_EMPLOYEES: Employee[] = [
   {"id": 1, "name": "MULALIĆ DAVOR", "role": "Direktor", "cat": "A", "start": 2020, "ma": true, "currentNet": 1293.71, "targetNet": 1600.00},
   {"id": 2, "name": "HABUL AMINA", "role": "Pedagog", "cat": "A", "start": 2017, "ma": true, "currentNet": 2497.92, "targetNet": 2600.00},
   {"id": 3, "name": "HUREMOVIĆ ARMINA", "role": "Pedagog", "cat": "A", "start": 2024, "ma": true, "currentNet": 1511.13, "targetNet": 1650.00},
   {"id": 4, "name": "MORIĆ AZRA", "role": "Office Manager", "cat": "A", "start": 2015, "ma": false, "currentNet": 1779.55, "targetNet": 1900.00},
-  {"id": 5, "name": "ŽUTIĆ (VELIĆ) MAJDA", "role": "Odgajatelj", "cat": "B", "start": 2012, "ma": true, "currentNet": 1601.38, "targetNet": 1800.00},
+  {"id": 5, "name": "ŽUTIĆ MAJDA", "role": "Odgajatelj", "cat": "B", "start": 2012, "ma": true, "currentNet": 1601.38, "targetNet": 1800.00},
   {"id": 6, "name": "AGIĆ HASANDIĆ AMELA", "role": "Odgajatelj", "cat": "B", "start": 2021, "ma": true, "currentNet": 1151.46, "targetNet": 1500.00},
   {"id": 7, "name": "LJUCA ALMA", "role": "Odgajatelj", "cat": "B", "start": 2020, "ma": true, "currentNet": 1382.67, "targetNet": 1550.00},
   {"id": 8, "name": "FAZLOVIĆ AMELA", "role": "Odgajatelj", "cat": "B", "start": 2024, "ma": false, "currentNet": 1639.86, "targetNet": 1700.00},
@@ -25,9 +25,3 @@ export const INITIAL_EMPLOYEES: Employee[] = [
 
 export const BASELINE_REVENUE_2025 = 876563.23;
 export const BRUTO_FACTOR = 1.63;
-
-export const INITIAL_PRICING: Pricing = {
-  local: 680,
-  foreign: 780,
-  canteen: 150
-};
