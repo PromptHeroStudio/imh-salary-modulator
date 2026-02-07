@@ -37,22 +37,45 @@
             background: #334155;
         }
         
-        /* PRINT STYLES - STRATEŠKI IZVJEŠTAJ */
+        /* PRINT STYLES - STRATEŠKI IZVJEŠTAJ (ROBUSNO RJEŠENJE) */
         @media print {
-            @page { margin: 0; size: auto; }
-            body { 
-                background: white !important; 
-                color: black !important; 
-                -webkit-print-color-adjust: exact !important; 
-                print-color-adjust: exact !important;
+            @page { margin: 1cm; size: auto; }
+            
+            /* 1. Sakrij sve elemente na stranici po defaultu */
+            body * {
+                visibility: hidden;
             }
-            .no-print { display: none !important; }
+            
+            /* 2. Učini vidljivim samo kontejner izvještaja i njegovu djecu */
+            #report-content, #report-content * {
+                visibility: visible;
+            }
+            
+            /* 3. Pozicioniraj izvještaj na vrh stranice, preko svega */
+            #report-content {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0 !important;
+                padding: 0 !important;
+                background: white !important;
+                color: black !important;
+                box-shadow: none !important;
+                border: none !important;
+                min-height: auto !important; /* Override screen height constraints */
+                border-radius: 0 !important;
+            }
+
+            /* 4. Eksplicitno sakrij elemente označene sa no-print unutar izvještaja (dugmad) */
+            .no-print {
+                display: none !important;
+            }
+
+            /* 5. Ostale optimizacije */
             .print-break-inside-avoid { break-inside: avoid; }
             
-            /* Sakrij scrollbar na printu */
             ::-webkit-scrollbar { display: none; }
-            
-            /* Forsiraj background colors */
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
     </style>

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Printer } from 'lucide-react';
@@ -31,6 +32,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/90 p-0 md:p-8 print:p-0 print:bg-white print:static print:block">
           <motion.div 
+            id="report-content" /* KLJUČNO ZA CSS IZOLACIJU ŠTAMPE */
             initial={{ opacity: 0, y: 50 }} 
             animate={{ opacity: 1, y: 0 }} 
             exit={{ opacity: 0, y: 50 }}
