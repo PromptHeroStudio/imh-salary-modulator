@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import { Employee } from '../types';
 import { INITIAL_EMPLOYEES, BRUTO_FACTOR } from '../constants';
@@ -19,16 +18,17 @@ export const useSalaryLogic = () => {
   // Podaci za grafikon lojalnosti
   const loyaltyCostData = useMemo(() => {
     const groups = [
-      { label: '≤ 2016 (10+ god)', filter: (y: number) => y <= 2016, color: '#064e3b' },
-      { label: '2017-2021 (5-10 god)', filter: (y: number) => y >= 2017 && y <= 2021, color: '#059669' },
-      { label: '2022-2024 (2-5 god)', filter: (y: number) => y >= 2022 && y <= 2024, color: '#10b981' },
-      { label: '2025+ (< 2 god)', filter: (y: number) => y >= 2025, color: '#34d399' },
+      { id: 'loyalty-10plus', label: '≤ 2016 (10+ god)', filter: (y: number) => y <= 2016, color: '#064e3b' },
+      { id: 'loyalty-5-10', label: '2017-2021 (5-10 god)', filter: (y: number) => y >= 2017 && y <= 2021, color: '#059669' },
+      { id: 'loyalty-2-5', label: '2022-2024 (2-5 god)', filter: (y: number) => y >= 2022 && y <= 2024, color: '#10b981' },
+      { id: 'loyalty-2less', label: '2025+ (< 2 god)', filter: (y: number) => y >= 2025, color: '#34d399' },
     ];
 
     return groups.map(g => {
       const groupEmployees = employees.filter(e => g.filter(e.start));
       const totalBrutoRaise = groupEmployees.reduce((sum, e) => sum + (e.targetNet - e.currentNet) * BRUTO_FACTOR, 0);
       return {
+        id: g.id,
         period: g.label,
         iznos: Number(totalBrutoRaise.toFixed(2)),
         boja: g.color
@@ -83,12 +83,13 @@ export const useSalaryLogic = () => {
                    (stats.categorySummaries.find(s => s.cat === 'D')?.totalRaiseCostBruto || 0);
     const dobit = stats.cistaDobit;
 
+    // Added explicit IDs to fix "Unknown Key" warning in Recharts
     return [
-      { name: 'PRIHOD', val: prihod, fill: '#10B981' },
-      { name: 'UPRAVA', val: -costA, fill: '#0f172a' },
-      { name: 'ODGAJATELJI', val: -costB, fill: '#334155' },
-      { name: 'POMOĆNO', val: -costCD, fill: '#64748b' },
-      { name: 'SUFICIT', val: dobit, fill: stats.isSustainable ? '#10B981' : '#EF4444' },
+      { id: 'wf-rev', name: 'PRIHOD', val: prihod, fill: '#10B981' },
+      { id: 'wf-mgmt', name: 'UPRAVA', val: -costA, fill: '#0f172a' },
+      { id: 'wf-teach', name: 'ODGAJATELJI', val: -costB, fill: '#334155' },
+      { id: 'wf-aux', name: 'POMOĆNO', val: -costCD, fill: '#64748b' },
+      { id: 'wf-net', name: 'SUFICIT', val: dobit, fill: stats.isSustainable ? '#10B981' : '#EF4444' },
     ];
   }, [stats]);
 

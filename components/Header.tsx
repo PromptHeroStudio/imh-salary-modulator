@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { FileText, Eye, EyeOff } from 'lucide-react';
 
@@ -23,8 +22,9 @@ export const Header: React.FC<HeaderProps> = ({
         <img src="https://i.postimg.cc/MZ4w91zf/imh-logo.png" alt="IMH Logo" className="h-[80px] object-contain" />
         <div className="h-16 w-2 bg-black hidden md:block"></div>
         <div>
-          <h1 className="text-4xl xl:text-5xl font-serif font-black tracking-tighter text-black uppercase">
-            Matrica Strategije 2026
+          <h1 className="text-4xl xl:text-5xl font-serif font-black tracking-tighter text-black uppercase flex items-center gap-4">
+            Modulator plata 2026
+            {privacyMode && <EyeOff className="text-slate-300 hidden md:block" size={32} />}
           </h1>
           <p className="text-sm font-bold uppercase tracking-[0.3em] text-slate-500 mt-1">International Montessori House</p>
         </div>

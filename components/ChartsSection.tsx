@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, TrendingUp } from 'lucide-react';
@@ -36,9 +35,11 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ stats, waterfallDa
               <motion.circle
                 cx="200" cy="200" r="160" stroke="currentColor" strokeWidth="30" fill="transparent"
                 strokeDasharray="1005"
-                initial={{ strokeDashoffset: 1005 }}
-                animate={{ strokeDashoffset: 1005 - (Math.max(0, Math.min(stats.cistaDobit / 40000, 1)) * 1005) }}
-                transition={{ duration: 1.5, ease: "easeOut" }}
+                {...{
+                  initial: { strokeDashoffset: 1005 },
+                  animate: { strokeDashoffset: 1005 - (Math.max(0, Math.min(stats.cistaDobit / 40000, 1)) * 1005) },
+                  transition: { duration: 0.5, ease: "easeOut" }
+                } as any}
                 className={stats.isSustainable ? "text-emerald-500" : "text-red-600"}
                 strokeLinecap="round"
               />
@@ -59,9 +60,10 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ stats, waterfallDa
            <h2 className="text-2xl font-black uppercase tracking-[0.3em] text-black mb-8 flex items-center gap-3">
              <TrendingUp size={32} /> Tok Kapitala
            </h2>
-           <div className="flex-1 w-full h-full min-h-0">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={waterfallData} margin={{top: 20, right: 10, left: 0, bottom: 20}}>
+           {/* Fix: Explicit height 400px and min-w-0 to prevent width(-1) error */}
+           <div className="w-full h-[400px] min-h-[400px] min-w-0">
+              <ResponsiveContainer width="100%" height="100%" debounce={50}>
+                <BarChart id="waterfall-chart-view" data={waterfallData} margin={{top: 20, right: 10, left: 0, bottom: 20}}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis 
                     dataKey="name" 
@@ -76,6 +78,7 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ stats, waterfallDa
                   <YAxis hide />
                   <Tooltip 
                     cursor={{fill: 'transparent'}}
+                    isAnimationActive={false} // Performance: Disable animation
                     content={({ active, payload }) => {
                       if (active && payload && payload.length) {
                         return (
@@ -89,8 +92,13 @@ export const ChartsSection: React.FC<ChartsSectionProps> = ({ stats, waterfallDa
                     }}
                   />
                   <ReferenceLine y={0} stroke="#000" strokeWidth={2} />
-                  <Bar dataKey="val" radius={[6, 6, 6, 6]} barSize={60}>
-                    {waterfallData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
+                  <Bar 
+                    dataKey="val" 
+                    radius={[6, 6, 6, 6]} 
+                    barSize={60}
+                    isAnimationActive={false} // Performance: Disable animation
+                  >
+                    {waterfallData.map((entry, index) => <Cell key={entry.id || `cell-${index}`} fill={entry.fill} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, ArrowRight } from 'lucide-react';
@@ -24,8 +23,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   return (
     <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-4">
       <motion.div 
-        initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }} 
+        {...{
+          initial: { opacity: 0, y: 20 },
+          animate: { opacity: 1, y: 0 }
+        } as any}
         className="w-full max-w-md bg-white border-4 border-black p-12 rounded-[3rem] shadow-2xl text-center"
       >
         <img src="https://i.postimg.cc/MZ4w91zf/imh-logo.png" alt="IMH Logo" className="h-24 mx-auto mb-8" />

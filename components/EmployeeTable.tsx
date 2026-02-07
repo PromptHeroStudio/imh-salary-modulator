@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Users, Award } from 'lucide-react';
 import { Employee } from '../types';
@@ -60,13 +59,17 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, totals,
                       {emp.ma ? <div className="flex justify-center"><Award size={20} className="text-amber-500" /></div> : <span className="text-slate-200">-</span>}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <CurrencyDisplay value={emp.currentNet} className="text-slate-400" />
+                       <div className={privacyMode ? "blur-sm select-none" : ""}>
+                          <CurrencyDisplay value={emp.currentNet} className="text-slate-400" />
+                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <CurrencyDisplay value={emp.targetNet} className="text-xl font-black text-black" />
+                       <div className={privacyMode ? "blur-sm select-none" : ""}>
+                          <CurrencyDisplay value={emp.targetNet} className="text-xl font-black text-black" />
+                       </div>
                     </td>
                     <td className="px-8 py-4 text-right">
-                      <div className="flex flex-col items-end">
+                      <div className={`flex flex-col items-end ${privacyMode ? "blur-sm select-none" : ""}`}>
                          <CurrencyDisplay value={raiseBruto} className="text-red-600 font-bold" />
                          <span className="text-[10px] text-red-300 font-bold uppercase tracking-wider">+{formatKM(raiseNet)} NETO</span>
                       </div>
@@ -83,13 +86,19 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({ employees, totals,
                    UKUPNO (PRIKAZANO):
                  </td>
                  <td className="px-6 py-6 text-right font-mono font-bold text-slate-300">
-                   {formatKM(totals.totalCurrentNet)}
+                   <div className={privacyMode ? "blur-sm select-none" : ""}>
+                     {formatKM(totals.totalCurrentNet)}
+                   </div>
                  </td>
                  <td className="px-6 py-6 text-right font-mono font-bold text-emerald-400 text-lg">
-                   {formatKM(totals.totalTargetNet)}
+                   <div className={privacyMode ? "blur-sm select-none" : ""}>
+                     {formatKM(totals.totalTargetNet)}
+                   </div>
                  </td>
                  <td className="px-8 py-6 text-right font-mono font-black text-white text-xl">
-                   {formatKM(totals.totalBrutoCost)}
+                   <div className={privacyMode ? "blur-sm select-none" : ""}>
+                     {formatKM(totals.totalBrutoCost)}
+                   </div>
                  </td>
                </tr>
             </tfoot>

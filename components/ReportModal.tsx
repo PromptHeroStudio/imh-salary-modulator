@@ -22,17 +22,28 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   employees
 }) => {
   
+  const handlePrint = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      window.print();
+    } catch (error) {
+      alert("Printanje je onemogućeno u preview modu. Molimo koristite produkcijski link ili Ctrl+P.");
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/90 p-0 md:p-8 print:p-0 print:bg-white print:static print:block pointer-events-auto">
           <motion.div 
             id="report-content"
-            initial={{ opacity: 0, y: 50 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            exit={{ opacity: 0, y: 50 }}
-            style={{ border: '2px solid red' }} /* DIJAGNOSTIČKI OKVIR: KONTROLA GRANICA MODALA */
-            className="print-container bg-white w-full max-w-5xl min-h-screen md:min-h-0 md:rounded-[3rem] p-12 md:p-20 shadow-2xl relative z-50 pointer-events-auto print:shadow-none print:w-full print:max-w-none print:p-0 print:border-none"
+            {...{
+              initial: { opacity: 0, y: 50 },
+              animate: { opacity: 1, y: 0 },
+              exit: { opacity: 0, y: 50 }
+            } as any}
+            className="print-container bg-white w-full max-w-5xl min-h-screen md:min-h-0 md:rounded-[3rem] p-12 md:p-20 shadow-2xl relative z-50 pointer-events-auto print:shadow-none print:w-full max-w-none print:max-w-none print:p-0 print:border-none"
           >
             <button 
                 onClick={onClose} 
@@ -82,7 +93,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   </div>
                   <div className={`p-8 rounded-3xl border-2 border-black print:border ${stats.isSustainable ? 'bg-emerald-50' : 'bg-red-50'}`}>
                      <div className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">OPERATIVNI REZULTAT</div>
-                     <div className={`text-5xl font-black mb-2 ${stats.isSustainable ? 'text-emerald-700' : 'text-red-700'}`}>{formatKM(stats.cistaDobit)}</div>
+                     <div className={`text-5xl font-black mb-2 whitespace-nowrap ${stats.isSustainable ? 'text-emerald-700' : 'text-red-700'}`}>{formatKM(stats.cistaDobit)}</div>
                      <div className="text-xs font-bold uppercase">{stats.isSustainable ? 'SUFICIT (ODRŽIVO)' : 'DEFICIT (NEODRŽIVO)'}</div>
                   </div>
                </section>
@@ -171,15 +182,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                  style={{ 
                    position: 'relative', 
                    zIndex: 9999, 
-                   pointerEvents: 'auto',
-                   border: '2px solid blue' /* DIJAGNOSTIČKI OKVIR: KONTROLA DUGMETA */
+                   pointerEvents: 'auto'
                  }}
-                 onClick={(e) => {
-                   e.preventDefault();
-                   e.stopPropagation();
-                   console.log("Dugme je primilo klik!");
-                   window.print();
-                 }}
+                 onClick={handlePrint}
                  className="flex-1 bg-black text-white py-6 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-transform"
                >
                   <Printer /> Printaj Dokument

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BarChart3 } from 'lucide-react';
 import { 
@@ -27,9 +26,10 @@ export const SecondaryCharts: React.FC<SecondaryChartsProps> = ({ loyaltyCostDat
           <h3 className="text-xl font-black uppercase tracking-[0.2em] mb-8 flex items-center gap-3">
             <BarChart3 size={24} /> Teret po lojalnosti
           </h3>
-          <div className="flex-1 min-h-0 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={loyaltyCostData} margin={{top: 20, right: 30, left: 20, bottom: 20}}>
+          {/* Fix: Explicit height 400px, min-w-0, and debounce=50 */}
+          <div className="w-full h-[400px] min-h-[400px] min-w-0">
+            <ResponsiveContainer width="100%" height="100%" debounce={50}>
+              <BarChart id="loyalty-chart-view" data={loyaltyCostData} margin={{top: 20, right: 30, left: 20, bottom: 20}}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                 <XAxis 
                   dataKey="period" 
@@ -41,6 +41,7 @@ export const SecondaryCharts: React.FC<SecondaryChartsProps> = ({ loyaltyCostDat
                 />
                 <YAxis hide />
                 <Tooltip 
+                  isAnimationActive={false}
                   cursor={{fill: 'rgba(0,0,0,0.03)'}}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
@@ -54,9 +55,14 @@ export const SecondaryCharts: React.FC<SecondaryChartsProps> = ({ loyaltyCostDat
                     return null;
                   }}
                 />
-                <Bar dataKey="iznos" radius={[8, 8, 8, 8]} barSize={50}>
+                <Bar 
+                  dataKey="iznos" 
+                  radius={[8, 8, 8, 8]} 
+                  barSize={50}
+                  isAnimationActive={false} // Performance: Disable animation
+                >
                   {loyaltyCostData.map((entry, index) => (
-                    <Cell key={`cell-loyalty-${index}`} fill={entry.boja} />
+                    <Cell key={entry.id || `cell-loyalty-${index}`} fill={entry.boja} />
                   ))}
                 </Bar>
               </BarChart>
@@ -76,7 +82,8 @@ export const SecondaryCharts: React.FC<SecondaryChartsProps> = ({ loyaltyCostDat
                  <h4 className="font-bold leading-tight text-sm uppercase">{catSum.label}</h4>
                </div>
                <div>
-                 <div className="text-2xl font-black tracking-tight">{formatKM(catSum.totalRaiseCostBruto)}</div>
+                 {/* VISUAL EMPHASIS: text-5xl font-black */}
+                 <div className="text-5xl font-black tracking-tighter text-black">{formatKM(catSum.totalRaiseCostBruto)}</div>
                  <div className="text-[10px] font-bold text-slate-300 uppercase mt-1">BRUTO TERET</div>
                </div>
             </div>

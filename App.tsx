@@ -55,6 +55,7 @@ const App: React.FC = () => {
       <KPICards 
         stats={stats}
         globalTotals={globalTotals}
+        privacyMode={privacyMode}
       />
 
       <ChartsSection 
