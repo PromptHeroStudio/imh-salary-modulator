@@ -1,13 +1,13 @@
 
-import { Employee, FinancialStats } from '../types';
+import { Employee, FinancialStats, CategorySummary } from '../types';
 import { BRUTO_FACTOR, BASELINE_REVENUE_2025 } from '../constants';
 
 /**
- * Pillar 1: Loyalty (Stup lojalnosti) based on 2026 perspective
- * 10+ Years (Start <= 2016): +15%
- * 5 - 10 Years (Start 2017 - 2021): +10%
- * 2 - 5 Years (Start 2022 - 2024): +4%
- * < 2 Years (Start 2025+): 0%
+ * Stub Lojalnosti (Pravilnik 2026) - Hardcoded ranges
+ * 2012 - 2016: +15%
+ * 2017 - 2021: +10%
+ * 2022 - 2024: +4%
+ * 2025+: 0%
  */
 export const getLoyaltyBonus = (startYear: number): number => {
   if (startYear <= 2016) return 0.15;
@@ -17,8 +17,8 @@ export const getLoyaltyBonus = (startYear: number): number => {
 };
 
 /**
- * Pillar 2: Expertise (Stup stručnosti)
- * Magistar (MA) Bonus: Fixed +5% increase on Base Net
+ * Stub Stručnosti
+ * MA Bonus: +5% na osnovicu
  */
 export const getExpertiseBonus = (isMa: boolean): number => {
   return isMa ? 0.05 : 0;
@@ -44,6 +44,17 @@ export const calculateStats = (employees: Employee[], tuitionIncrease: number): 
   const isSustainable = revenueGrowth >= grossIncrease;
   const operationalBuffer = revenueGrowth - grossIncrease;
 
+  const cats: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
+  const categorySummaries: CategorySummary[] = cats.map(cat => {
+    const catEmployees = employees.filter(e => e.cat === cat);
+    const catNewGross = catEmployees.reduce((sum, e) => sum + calculateNewNet(e), 0) * 12 * BRUTO_FACTOR;
+    return {
+      cat,
+      count: catEmployees.length,
+      totalNewGross: catNewGross
+    };
+  });
+
   return {
     totalCurrentNet: totalCurrentNetMonthly * 12,
     totalNewNet: totalNewNetMonthly * 12,
@@ -52,6 +63,7 @@ export const calculateStats = (employees: Employee[], tuitionIncrease: number): 
     grossIncrease,
     revenueGrowth,
     isSustainable,
-    operationalBuffer
+    operationalBuffer,
+    categorySummaries
   };
 };

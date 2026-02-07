@@ -10,6 +10,12 @@ export interface Employee {
   targetNet: number;
 }
 
+export interface CategorySummary {
+  cat: 'A' | 'B' | 'C' | 'D';
+  count: number;
+  totalNewGross: number;
+}
+
 export interface FinancialStats {
   totalCurrentNet: number;
   totalNewNet: number;
@@ -19,6 +25,7 @@ export interface FinancialStats {
   revenueGrowth: number;
   isSustainable: boolean;
   operationalBuffer: number;
+  categorySummaries: CategorySummary[];
 }
 
 export interface Pricing {
