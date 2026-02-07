@@ -1,19 +1,14 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import { 
-  TrendingUp, 
   Users, 
   ShieldCheck, 
   ShieldAlert, 
   Wallet, 
-  Calendar,
-  Briefcase,
   ToggleLeft,
   ToggleRight,
-  ChevronRight,
   GraduationCap,
-  Scale,
   FileText,
   X,
   Printer,
@@ -21,15 +16,21 @@ import {
   Sun,
   Moon,
   Save,
-  ChevronDown
+  ArrowUpRight,
+  ArrowDownRight,
+  Scale,
+  TrendingUp,
+  Briefcase
 } from 'lucide-react';
 import { 
   BarChart, 
   Bar, 
   XAxis, 
+  YAxis,
   Tooltip, 
   ResponsiveContainer, 
-  Cell
+  Cell,
+  CartesianGrid
 } from 'recharts';
 
 import { INITIAL_EMPLOYEES, BASELINE_REVENUE_2025 } from './constants';
@@ -41,8 +42,24 @@ const App: React.FC = () => {
   const [tuitionIncrease, setTuitionIncrease] = useState<number>(6);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [isDark, setIsDark] = useState(true);
+  
+  const profitControls = useAnimation();
 
   const stats = useMemo(() => calculateStats(employees, tuitionIncrease), [employees, tuitionIncrease]);
+
+  // Added groupSummaries to fix the "Cannot find name 'groupSummaries'" error
+  const groupSummaries = useMemo(() => {
+    const labels: Record<string, string> = {
+      'A': 'Uprava i Pedagogija',
+      'B': 'Odgajatelji',
+      'C': 'Asistenti i Saradnici',
+      'D': 'Tehničko osoblje'
+    };
+    return stats.categorySummaries.map(s => ({
+      label: labels[s.cat] || `Grupa ${s.cat}`,
+      value: s.totalNewGross
+    }));
+  }, [stats.categorySummaries]);
 
   useEffect(() => {
     if (isDark) {
@@ -54,313 +71,287 @@ const App: React.FC = () => {
     }
   }, [isDark]);
 
+  useEffect(() => {
+    profitControls.start({
+      scale: [1, 1.02, 1],
+      transition: { duration: 0.3 }
+    });
+  }, [tuitionIncrease, profitControls]);
+
   const toggleMA = (id: number) => {
     setEmployees(prev => prev.map(e => e.id === id ? { ...e, ma: !e.ma } : e));
   };
 
   const formattedCurrency = (val: number) => {
-    return new Intl.NumberFormat('bs-BA', { style: 'currency', currency: 'BAM' }).format(val);
+    return new Intl.NumberFormat('bs-BA', { style: 'currency', currency: 'BAM', minimumFractionDigits: 2 }).format(val);
   };
 
-  const barChartData = [
-    { name: '2025 Stanje', value: stats.totalCurrentGross },
-    { name: '2026 Projekcija', value: stats.totalNewGross },
+  const waterfallData = [
+    { name: 'Bazni Prihod', value: BASELINE_REVENUE_2025, color: '#475569' },
+    { name: 'Novi Priliv', value: stats.revenueGrowth, color: '#10b981' },
+    { name: 'Ukupni Bruto', value: -stats.totalNewGross, color: '#991b1b' },
+    { name: 'Rezerva', value: stats.operationalBuffer, color: stats.isSustainable ? '#fbbf24' : '#ef4444' },
   ];
 
-  const TooltipIcon = ({ text }: { text: string }) => (
-    <div className="group relative inline-block ml-1 md:ml-2 cursor-help align-middle">
-      <Info size={14} className="text-slate-400 group-hover:text-amber-500 transition-colors" />
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-40 md:w-48 p-2 bg-slate-900 text-white text-[9px] md:text-[10px] rounded-lg shadow-xl z-[60] border border-slate-800">
-        {text}
-      </div>
-    </div>
-  );
-
-  const groupSummaries = useMemo(() => {
-    const uprava = stats.categorySummaries.find(s => s.cat === 'A')?.totalNewGross || 0;
-    const odgajatelji = stats.categorySummaries.find(s => s.cat === 'B')?.totalNewGross || 0;
-    const pomocno = (stats.categorySummaries.find(s => s.cat === 'C')?.totalNewGross || 0) + 
-                     (stats.categorySummaries.find(s => s.cat === 'D')?.totalNewGross || 0);
-    return [
-      { label: 'Uprava (Kat. A)', value: uprava },
-      { label: 'Odgajatelji (Kat. B)', value: odgajatelji },
-      { label: 'Pomoćno osoblje (Kat. C i D)', value: pomocno }
-    ];
-  }, [stats]);
-
   return (
-    <div className={`min-h-screen transition-colors duration-500 ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} p-4 md:p-8 lg:p-12 font-sans overflow-x-hidden`}>
-      {/* Background Pulse Indicator */}
-      <div className={`fixed inset-0 pointer-events-none transition-opacity duration-1000 opacity-5 z-0 ${stats.isSustainable ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+    <div className={`min-h-screen transition-colors duration-500 ${isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'} p-4 md:p-10 lg:p-16 font-sans overflow-x-hidden`}>
+      
+      {/* GLOW BACKGROUND EFFECT */}
+      <div className={`fixed inset-0 pointer-events-none z-0 transition-opacity duration-1000 ${stats.isSustainable ? 'opacity-[0.03] bg-emerald-500' : 'opacity-[0.08] bg-red-900'}`} />
 
-      {/* Header Section */}
-      <header className="max-w-7xl mx-auto mb-8 md:mb-16 flex flex-col md:flex-row md:items-start justify-between gap-6 md:gap-8 relative z-10">
-        <div className="flex-1 order-2 md:order-1 text-center md:text-left">
-          <div className="flex flex-col md:flex-row items-center gap-3 md:gap-4 mb-4">
+      {/* HEADER & SLIDER */}
+      <header className="max-w-[1600px] mx-auto mb-12 md:mb-20 flex flex-col xl:flex-row items-center justify-between gap-10 relative z-10">
+        <div className="flex-1 text-center xl:text-left">
+          <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="p-3 bg-amber-500 rounded-xl md:rounded-2xl shadow-lg shadow-amber-500/20"
+              initial={{ opacity: 0, rotate: -10 }}
+              animate={{ opacity: 1, rotate: 0 }}
+              className="p-6 bg-amber-500 rounded-[2rem] shadow-[0_20px_50px_rgba(245,158,11,0.3)]"
             >
-              <GraduationCap className="text-slate-950 md:w-8 md:h-8" size={24} />
+              <GraduationCap className="text-slate-950 w-12 h-12" />
             </motion.div>
             <div>
-              <div className={`text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] ${isDark ? 'text-amber-500' : 'text-amber-600'}`}>
+              <div className="text-[10px] md:text-xs font-black uppercase tracking-[0.6em] text-amber-500 mb-2">
                 International Montessori House
               </div>
-              <h1 className={`text-2xl md:text-5xl font-serif font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                Strateški Modelator 2026
+              <h1 className="text-4xl md:text-6xl font-serif font-bold tracking-tight">
+                Digitalni Ustav 2026
               </h1>
             </div>
           </div>
-          <p className={`${isDark ? 'text-slate-400' : 'text-slate-500'} max-w-xl text-sm md:text-lg hidden md:block`}>
-            Precizna simulacija finansijske održivosti vrtića i pravedne distribucije primanja.
+          <p className="text-slate-500 dark:text-slate-400 max-w-2xl text-lg md:text-xl font-medium italic opacity-80">
+            Autorizovani simulator za osnivača: Upravljanje povišicama i održivošću budžeta.
           </p>
         </div>
 
-        <div className="flex items-center justify-between md:justify-end gap-3 md:gap-4 order-1 md:order-2">
-          <button 
-            onClick={() => setIsDark(!isDark)}
-            className={`p-3 md:p-4 rounded-xl md:rounded-2xl transition-all ${isDark ? 'bg-slate-900 text-amber-400 hover:bg-slate-800' : 'bg-white text-slate-600 shadow-lg hover:shadow-xl'}`}
-            aria-label="Toggle theme"
-          >
-            {isDark ? <Sun size={20} className="md:w-6 md:h-6" /> : <Moon size={20} className="md:w-6 md:h-6" />}
-          </button>
-          
+        <div className="flex flex-col sm:flex-row items-center gap-8 w-full xl:w-auto">
+          {/* SLIDER CARD */}
           <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className={`flex-1 md:flex-none ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-lg'} border p-4 md:p-8 rounded-xl md:rounded-[2.5rem] flex flex-col gap-2 md:gap-4 min-w-0 md:min-w-[320px] transition-shadow duration-300 ${!stats.isSustainable ? 'shadow-rose-500/10' : 'shadow-emerald-500/10'}`}
+            className={`w-full sm:w-[450px] ${isDark ? 'bg-slate-900/80 border-slate-800 shadow-2xl shadow-black/50' : 'bg-white border-slate-200 shadow-xl'} backdrop-blur-xl border-2 p-10 rounded-[3.5rem] flex flex-col gap-8`}
           >
             <div className="flex justify-between items-center">
-              <span className={`text-[8px] md:text-xs font-black uppercase tracking-widest ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                Klizač za povećanje školarine (%)
+              <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                Povećanje školarine (%)
               </span>
-              <span className="text-amber-500 font-black text-xl md:text-3xl">{tuitionIncrease}%</span>
+              <span className="text-amber-500 font-black text-5xl">+{tuitionIncrease}%</span>
             </div>
             <input 
-              type="range" 
-              min="0" 
-              max="10" 
-              step="0.5"
+              type="range" min="0" max="10" step="0.5"
               value={tuitionIncrease}
               onChange={(e) => setTuitionIncrease(parseFloat(e.target.value))}
-              className={`w-full h-2 md:h-3 rounded-full appearance-none cursor-pointer accent-amber-500 touch-manipulation transition-colors ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}
+              className="w-full h-4 bg-slate-200 dark:bg-slate-800 rounded-full appearance-none cursor-pointer accent-amber-500 shadow-inner"
             />
+            <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-tighter opacity-60">
+              <span>Standard (0%)</span>
+              <span>Bazni Prihod: {formattedCurrency(BASELINE_REVENUE_2025)}</span>
+            </div>
           </motion.div>
+
+          {/* THEME TOGGLE */}
+          <button 
+            onClick={() => setIsDark(!isDark)}
+            className={`p-6 rounded-[2rem] transition-all border-2 ${isDark ? 'bg-slate-900 border-slate-800 text-amber-400 hover:bg-slate-800' : 'bg-white border-slate-200 text-slate-600 shadow-xl'}`}
+          >
+            {isDark ? <Sun size={32} /> : <Moon size={32} />}
+          </button>
         </div>
       </header>
 
-      {/* Main Dashboard Section */}
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4 md:gap-8 mb-8 md:mb-16 relative z-10">
+      {/* MANDAT 3: 3 LARGE EXECUTIVE CARDS */}
+      <div className="max-w-[1600px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 mb-12 md:mb-20 relative z-10">
         
-        {/* SEMAFOR SIGURNOSTI BUDŽETA */}
+        {/* CARD 1: NOVI PRIHOD */}
+        <motion.div 
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          className={`p-10 md:p-14 rounded-[4rem] border-2 transition-all ${isDark ? 'bg-slate-900/40 border-slate-800 hover:border-emerald-500/30' : 'bg-white border-slate-100 shadow-xl'}`}
+        >
+          <div className="flex justify-between items-start mb-10">
+            <span className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Novi Prihod</span>
+            <TrendingUp className="text-emerald-500 w-10 h-10" />
+          </div>
+          <div className="text-4xl md:text-6xl font-mono font-black text-emerald-500 tracking-tighter">
+            +{formattedCurrency(stats.revenueGrowth)}
+          </div>
+          <p className="mt-4 text-[11px] font-bold uppercase text-slate-500 tracking-widest opacity-60">
+            Dodatna sredstva od školarine
+          </p>
+        </motion.div>
+
+        {/* CARD 2: TROŠAK POVIŠICA */}
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          className={`lg:col-span-5 p-6 md:p-12 rounded-2xl md:rounded-[3.5rem] border-2 flex flex-col items-center justify-center text-center relative overflow-hidden transition-all duration-700 shadow-xl ${
+          className={`p-10 md:p-14 rounded-[4rem] border-2 transition-all ${isDark ? 'bg-slate-900/40 border-slate-800 hover:border-red-500/30' : 'bg-white border-slate-100 shadow-xl'}`}
+        >
+          <div className="flex justify-between items-start mb-10">
+            <span className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Trošak Povišica</span>
+            <ArrowDownRight className="text-red-500 w-10 h-10" />
+          </div>
+          <div className="text-4xl md:text-6xl font-mono font-black text-red-500 tracking-tighter">
+            -{formattedCurrency(stats.grossIncrease)}
+          </div>
+          <p className="mt-4 text-[11px] font-bold uppercase text-slate-500 tracking-widest opacity-60">
+            Ukupni Bruto teret (Neto x 1.63)
+          </p>
+        </motion.div>
+
+        {/* CARD 3: ČISTA DOBIT */}
+        <motion.div 
+          animate={profitControls}
+          initial={{ opacity: 0, x: 30 }}
+          className={`p-10 md:p-14 rounded-[4rem] border-2 transition-all shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] ${isDark ? 'bg-slate-900 border-amber-500/20 shadow-amber-500/5' : 'bg-white border-slate-100 shadow-xl'}`}
+        >
+          <div className="flex justify-between items-start mb-10">
+            <span className="text-xs font-black uppercase tracking-[0.3em] text-slate-500">Čista Dobit</span>
+            <Wallet className={`${stats.operationalBuffer >= 0 ? 'text-amber-500' : 'text-red-500'} w-10 h-10`} />
+          </div>
+          <div className={`text-4xl md:text-6xl font-mono font-black tracking-tighter ${stats.operationalBuffer >= 0 ? 'text-amber-500' : 'text-red-500'}`}>
+            {formattedCurrency(stats.operationalBuffer)}
+          </div>
+          <p className="mt-4 text-[11px] font-bold uppercase text-slate-500 tracking-widest opacity-60">
+            Preostali višak za investicije
+          </p>
+        </motion.div>
+      </div>
+
+      {/* DASHBOARD MIDDLE SECTION */}
+      <div className="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-10 mb-20 relative z-10">
+        
+        {/* SIGURNOST BUDŽETA (GAUGE) */}
+        <motion.div 
+          className={`lg:col-span-5 p-12 md:p-16 rounded-[5rem] border-2 flex flex-col items-center justify-center text-center shadow-2xl ${
             stats.isSustainable 
               ? (isDark ? 'border-emerald-500/40 bg-emerald-500/[0.03]' : 'border-emerald-200 bg-white') 
-              : (isDark ? 'border-rose-500/40 bg-rose-500/[0.03]' : 'border-rose-200 bg-white')
+              : (isDark ? 'border-red-600 bg-red-950/40' : 'border-red-400 bg-white')
           }`}
         >
-          <div className="absolute top-4 right-4 md:top-8 md:right-8">
-            <TooltipIcon text="Semafor prati da li planirani rast prihoda od školarine pokriva nove povišice plata radnika (sa svim doprinosima)." />
-          </div>
-          
-          <div className="relative mb-6 md:mb-10 flex items-center justify-center scale-75 md:scale-100">
-            <svg className="w-40 h-40 md:w-56 md:h-56 transform -rotate-90">
-              <circle
-                cx="112" cy="112" r="95"
-                stroke="currentColor" strokeWidth="16" fill="transparent"
-                className={isDark ? "text-slate-900" : "text-slate-100"}
-              />
+          <h2 className="text-2xl font-serif font-bold mb-10 tracking-widest uppercase">Sigurnost Budžeta</h2>
+          <div className="relative mb-12 flex items-center justify-center scale-110 md:scale-125">
+            <svg className="w-64 h-64 transform -rotate-90 drop-shadow-2xl">
+              <circle cx="128" cy="128" r="110" stroke="currentColor" strokeWidth="18" fill="transparent" className={isDark ? "text-slate-900" : "text-slate-100"} />
               <motion.circle
-                cx="112" cy="112" r="95"
-                stroke="currentColor" strokeWidth="16" fill="transparent"
-                strokeDasharray="596.6"
-                initial={{ strokeDashoffset: 596.6 }}
-                animate={{ strokeDashoffset: 596.6 - (Math.min(tuitionIncrease, 10) / 10) * 596.6 }}
+                cx="128" cy="128" r="110" stroke="currentColor" strokeWidth="18" fill="transparent"
+                strokeDasharray="691.15"
+                initial={{ strokeDashoffset: 691.15 }}
+                animate={{ strokeDashoffset: 691.15 - (Math.min(tuitionIncrease, 10) / 10) * 691.15 }}
                 transition={{ duration: 1.5, ease: "circOut" }}
-                className={stats.isSustainable ? "text-emerald-500" : "text-rose-500"}
+                className={stats.isSustainable ? "text-emerald-500" : "text-red-600"}
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
               {stats.isSustainable ? 
-                <ShieldCheck className="text-emerald-500 mb-1 md:mb-2 drop-shadow-lg md:w-16 md:h-16" size={32} /> : 
-                <ShieldAlert className="text-rose-500 mb-1 md:mb-2 animate-pulse drop-shadow-lg md:w-16 md:h-16" size={32} />
+                <ShieldCheck className="text-emerald-500 mb-2" size={80} /> : 
+                <ShieldAlert className="text-red-600 mb-2 animate-pulse" size={80} />
               }
-              <div className={`text-[10px] md:text-xs font-black uppercase tracking-[0.2em] ${stats.isSustainable ? 'text-emerald-500' : 'text-rose-500'}`}>
-                {stats.isSustainable ? 'ODRŽIVO ✅' : 'RIZIČNO ❌'}
+              <div className={`text-[10px] font-black uppercase tracking-[0.4em] ${stats.isSustainable ? 'text-emerald-500' : 'text-red-600'}`}>
+                {stats.isSustainable ? 'BALANS POSTIGNUT' : 'RIZIČNA OPERACIJA'}
               </div>
             </div>
           </div>
-
-          <h2 className="text-xl md:text-3xl font-serif font-bold mb-2 md:mb-4 leading-tight">Semafor Sigurnosti Budžeta</h2>
-          <div className={`text-[10px] md:text-sm mb-4 md:mb-8 px-4 md:px-8 py-2 md:py-3 rounded-full font-black tracking-widest uppercase border-2 ${
-            stats.isSustainable 
-              ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30' 
-              : 'bg-rose-500/10 text-rose-500 border-rose-500/30'
+          <div className={`text-[11px] px-10 py-5 rounded-full font-black tracking-[0.3em] uppercase border-2 shadow-xl ${
+            stats.isSustainable ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10' : 'text-red-500 border-red-500/30 bg-red-500/10'
           }`}>
-            {stats.isSustainable ? 'Budžet je Održiv' : 'Potrebna Korekcija'}
-          </div>
-          
-          <div className="w-full space-y-3 px-4 md:px-8">
-            <div className={`flex justify-between items-center p-3 rounded-xl border ${isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
-              <span className="text-[10px] uppercase font-bold text-slate-500">Priliv od školarina</span>
-              <span className="font-mono text-emerald-500 font-black">+{formattedCurrency(stats.revenueGrowth)}</span>
-            </div>
-            <div className={`flex justify-between items-center p-3 rounded-xl border ${isDark ? 'bg-slate-900/50 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
-              <span className="text-[10px] uppercase font-bold text-slate-500">Trošak plata (Bruto)</span>
-              <span className="font-mono text-rose-500 font-black">-{formattedCurrency(stats.grossIncrease)}</span>
-            </div>
+            {stats.isSustainable ? 'Strategija je održiva' : 'Povećajte povišicu školarine'}
           </div>
         </motion.div>
 
-        {/* Executive Cards Grid */}
-        <div className="lg:col-span-7 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
-          
-          {/* ČISTA DOBIT VRTIĆA */}
-          <motion.div 
-            className={`p-6 md:p-10 rounded-2xl md:rounded-[3rem] ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-lg'} border flex flex-col`}
-          >
-            <div className="flex justify-between items-start mb-6 md:mb-10">
-              <h2 className={`text-lg md:text-xl font-serif font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Čista Dobit Vrtića</h2>
-              <div className={`p-3 md:p-4 rounded-xl md:rounded-[1.5rem] ${stats.operationalBuffer >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
-                <Wallet className="md:w-7 md:h-7" size={20} />
-              </div>
-            </div>
-            <div className="mt-auto">
-              <div className="text-[8px] md:text-[10px] uppercase font-black text-slate-400 tracking-widest mb-1 md:mb-2 flex items-center">
-                Neto Rezultat Strategije
-                <TooltipIcon text="Iznos koji ostaje Ustanovi nakon isplate svih novih povišica i doprinosa državi." />
-              </div>
-              <div className={`text-2xl md:text-5xl font-mono font-black ${stats.operationalBuffer >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                {formattedCurrency(stats.operationalBuffer)}
-              </div>
-            </div>
-          </motion.div>
-
-          {/* TRI STUBA (Pravilnik 2026) */}
-          <motion.div 
-            className={`p-6 md:p-10 rounded-2xl md:rounded-[3rem] ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-lg'} border flex flex-col`}
-          >
-            <h2 className={`text-lg md:text-xl font-serif font-bold mb-6 md:mb-8 ${isDark ? 'text-white' : 'text-slate-900'}`}>Strateški Stubovi 2026</h2>
-            <div className="space-y-4">
-              {[
-                { label: 'Stup Lojalnosti', info: 'Do 15% na osnovu staža.', icon: <Users size={14} />, color: '#fbbf24' },
-                { label: 'Stup Stručnosti', info: '+5% za MA status.', icon: <Briefcase size={14} />, color: '#f59e0b' },
-                { label: 'Stup Održivosti', info: 'Rast školarina vs plate.', icon: <TrendingUp size={14} />, color: stats.isSustainable ? '#10b981' : '#f43f5e' }
-              ].map((s, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${s.color}15`, color: s.color }}>{s.icon}</div>
-                  <div>
-                    <div className={`text-[10px] font-black uppercase ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>{s.label}</div>
-                    <div className="text-[9px] text-slate-500 font-bold uppercase">{s.info}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* GRAFIKON PROJEKCIJE */}
-          <motion.div 
-            className={`md:col-span-2 p-6 md:p-10 rounded-2xl md:rounded-[3rem] ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-xl'} border shadow-xl flex flex-col`}
-          >
-            <h2 className={`text-lg md:text-xl font-serif font-bold mb-6 ${isDark ? 'text-white' : 'text-slate-900'}`}>Ukupni Trošak Plata (Bruto)</h2>
-            <div className="w-full h-[200px] md:h-[240px]">
-              <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-                <BarChart data={barChartData} margin={{top: 10, right: 10, left: 0, bottom: 0}}>
-                  <XAxis dataKey="name" fontSize={10} stroke="#94a3b8" axisLine={false} tickLine={false} />
-                  <Tooltip 
-                    cursor={{fill: 'transparent'}}
-                    contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', border: 'none', borderRadius: '1rem', fontSize: '12px', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                    formatter={(val: number) => [formattedCurrency(val), 'Bruto Trošak']}
-                  />
-                  <Bar dataKey="value" radius={[15, 15, 0, 0]} barSize={80} isAnimationActive={false}>
-                    {barChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index === 0 ? (isDark ? '#1e293b' : '#cbd5e1') : '#fbbf24'} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </motion.div>
-
-        </div>
+        {/* WATERFALL CHART */}
+        <motion.div 
+          className={`lg:col-span-7 p-12 md:p-16 rounded-[5rem] border-2 shadow-2xl ${isDark ? 'bg-slate-900/60 border-slate-800' : 'bg-white border-slate-100'}`}
+        >
+          <h2 className="text-2xl font-serif font-bold mb-12 tracking-widest uppercase text-center xl:text-left">
+            Simetrija Budžeta (Waterfall)
+          </h2>
+          <div className="w-full h-[350px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={waterfallData} margin={{top: 20, right: 30, left: 20, bottom: 20}}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={isDark ? "#1e293b" : "#e2e8f0"} />
+                <XAxis dataKey="name" fontSize={11} fontWeight="bold" stroke="#64748b" axisLine={false} tickLine={false} dy={15} />
+                <YAxis hide domain={['auto', 'auto']} />
+                <Tooltip 
+                  cursor={{fill: 'transparent'}}
+                  contentStyle={{ backgroundColor: isDark ? '#0f172a' : '#fff', border: 'none', borderRadius: '1.5rem', boxShadow: '0 30px 60px rgba(0,0,0,0.5)' }}
+                  formatter={(val: number) => [formattedCurrency(val), 'Finansijski saldo']}
+                />
+                <Bar dataKey="value" radius={[15, 15, 15, 15]} barSize={90}>
+                  {waterfallData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-8 flex justify-between text-[10px] font-black uppercase text-slate-500 px-6 tracking-widest opacity-60">
+            <span>START</span>
+            <span>PRILIV</span>
+            <span>RASHOD</span>
+            <span className="text-amber-500">SALDO 2026</span>
+          </div>
+        </motion.div>
       </div>
 
-      {/* Employee Matrix Section */}
-      <section className="max-w-7xl mx-auto mb-20 md:mb-32 relative z-10">
-        <div className={`border rounded-2xl md:rounded-[3.5rem] overflow-hidden shadow-2xl ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-          <div className="p-6 md:p-12 border-b border-slate-800 flex flex-col md:flex-row justify-between items-center gap-6">
+      {/* MATRICA STRATEGIJE RADNIKA (TABLE) */}
+      <section className="max-w-[1600px] mx-auto mb-32 relative z-10">
+        <div className={`border-2 rounded-[4rem] md:rounded-[5rem] overflow-hidden shadow-[0_60px_120px_-30px_rgba(0,0,0,0.7)] ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
+          <div className="p-12 md:p-20 border-b-2 border-slate-800 flex flex-col md:flex-row justify-between items-center gap-10">
             <div className="text-center md:text-left">
-              <h2 className={`text-xl md:text-3xl font-serif font-bold flex flex-col md:flex-row items-center gap-2 md:gap-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-                <Users className="text-amber-500 md:w-9 md:h-9" size={24} />
+              <h2 className="text-3xl md:text-5xl font-serif font-bold flex items-center gap-6">
+                <Users className="text-amber-500 w-12 h-12" />
                 Matrica Strategije 2026
               </h2>
-              <p className="text-slate-500 mt-2 text-[10px] md:text-sm uppercase tracking-widest font-black">
-                Prikaz novih primanja radnika (Stub Lojalnosti + Stručnosti)
-              </p>
+              <p className="text-slate-500 mt-4 text-sm md:text-lg font-bold uppercase tracking-[0.4em]">Precizni obračun primanja po stubovima</p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-              <button 
-                className={`flex-1 px-4 py-3 md:px-8 md:py-5 rounded-xl md:rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg ${isDark ? 'bg-slate-800 text-white hover:bg-slate-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
-              >
-                <Save size={16} />
-                Sačuvaj Simulaciju
-              </button>
-              <button 
-                onClick={() => setIsReportOpen(true)}
-                className="flex-1 px-4 py-3 md:px-10 md:py-5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl md:rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2"
-              >
-                <FileText size={16} />
-                Generiši Izvještaj
+            <div className="flex gap-6 w-full md:w-auto">
+              <button onClick={() => setIsReportOpen(true)} className="flex-1 px-12 py-8 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.3em] shadow-2xl transition-all active:scale-95 flex items-center justify-center gap-4">
+                <FileText size={24} /> Izvještaj
               </button>
             </div>
           </div>
           
-          {/* Desktop Table View */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
               <thead>
-                <tr className={`${isDark ? 'bg-slate-950/50 text-slate-400' : 'bg-slate-50 text-slate-500'} text-[11px] uppercase font-black tracking-[0.2em] border-b border-slate-800`}>
-                  <th className="px-12 py-8">Ime i Prezime</th>
-                  <th className="px-6 py-8 text-center">Start</th>
-                  <th className="px-6 py-8 text-center">Razred</th>
-                  <th className="px-6 py-8">Stub Lojalnosti (%)</th>
-                  <th className="px-6 py-8">Stručnost (MA)</th>
-                  <th className="px-6 py-8 text-right">Nova Neto Plata</th>
+                <tr className={`${isDark ? 'bg-slate-950/50 text-slate-400' : 'bg-slate-50 text-slate-500'} text-xs uppercase font-black tracking-[0.4em] border-b-2 border-slate-800`}>
+                  <th className="px-16 py-12">Ime i Prezime / Pozicija</th>
+                  <th className="px-6 py-12 text-center">Start</th>
+                  <th className="px-6 py-12 text-center">Razred</th>
+                  <th className="px-6 py-12">Lojalnost (%)</th>
+                  <th className="px-6 py-12">MA Status</th>
+                  <th className="px-6 py-12 text-right">Nova Neto Plata</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/30">
+              <tbody className="divide-y-2 divide-slate-800/40">
                 {employees.map((emp) => {
                   const loyaltyBonus = getLoyaltyBonus(emp.start);
                   const finalNet = calculateNewNet(emp);
                   const netDelta = finalNet - emp.currentNet;
                   return (
-                    <tr key={emp.id} className={`transition-all ${isDark ? 'hover:bg-slate-800/20' : 'hover:bg-slate-50'}`}>
-                      <td className="px-12 py-6">
-                        <div className={`font-black uppercase text-sm tracking-wide ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{emp.name}</div>
-                        <div className="text-[10px] text-slate-500 font-black uppercase mt-1">{emp.role}</div>
+                    <tr key={emp.id} className={`transition-all ${isDark ? 'hover:bg-slate-800/30' : 'hover:bg-slate-50'}`}>
+                      <td className="px-16 py-10">
+                        <div className="font-black uppercase text-base tracking-widest">{emp.name}</div>
+                        <div className="text-xs text-slate-500 font-bold uppercase mt-2 tracking-wider">{emp.role}</div>
                       </td>
-                      <td className="px-6 py-6 text-center text-xs font-bold text-slate-400">{emp.start}</td>
-                      <td className="px-6 py-6 text-center">
-                        <span className="text-[10px] font-black px-2 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-md">{emp.cat}</span>
+                      <td className="px-6 py-10 text-center font-black text-slate-400">{emp.start}</td>
+                      <td className="px-6 py-10 text-center">
+                        <span className="text-[11px] font-black px-4 py-2 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-xl">{emp.cat}</span>
                       </td>
-                      <td className="px-6 py-6">
-                        <span className={`text-xs font-black ${loyaltyBonus > 0 ? 'text-emerald-500' : 'text-slate-500'}`}>
-                          {loyaltyBonus > 0 ? `+${(loyaltyBonus * 100).toFixed(0)}%` : '0%'}
-                        </span>
+                      <td className="px-6 py-10">
+                        <div className="flex flex-col">
+                          <span className={`text-lg font-black ${loyaltyBonus > 0 ? 'text-emerald-500' : 'text-slate-500'}`}>+{(loyaltyBonus * 100).toFixed(0)}%</span>
+                          <span className="text-[10px] uppercase font-bold text-slate-600">Član 4.</span>
+                        </div>
                       </td>
-                      <td className="px-6 py-6">
-                        <button onClick={() => toggleMA(emp.id)} className={`transition-all ${emp.ma ? 'text-amber-500' : 'text-slate-700'}`}>
-                          {emp.ma ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
+                      <td className="px-6 py-10">
+                        <button onClick={() => toggleMA(emp.id)} className={`transition-all ${emp.ma ? 'text-amber-500' : 'text-slate-700 opacity-40 hover:opacity-100'}`}>
+                          {emp.ma ? <ToggleRight size={56} /> : <ToggleLeft size={56} />}
                         </button>
                       </td>
-                      <td className="px-6 py-6 text-right">
-                        <div className="font-mono font-black text-lg">{formattedCurrency(finalNet)}</div>
-                        <div className="text-[10px] text-emerald-500 font-bold">+{formattedCurrency(netDelta)}</div>
+                      <td className="px-6 py-10 text-right">
+                        <div className="font-mono font-black text-3xl tracking-tighter">{formattedCurrency(finalNet)}</div>
+                        <div className="text-xs text-emerald-500 font-black flex items-center justify-end gap-2 mt-2">
+                          <ArrowUpRight size={16} /> +{formattedCurrency(netDelta)}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -369,63 +360,19 @@ const App: React.FC = () => {
             </table>
           </div>
 
-          {/* Mobile Card View */}
-          <div className="lg:hidden p-4 space-y-4">
-            {employees.map((emp) => {
-              const loyaltyBonus = getLoyaltyBonus(emp.start);
-              const finalNet = calculateNewNet(emp);
-              const netDelta = finalNet - emp.currentNet;
-              return (
-                <div key={emp.id} className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-950/50 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <div className={`font-black uppercase text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>{emp.name}</div>
-                      <div className="text-[10px] text-slate-500 font-black uppercase">{emp.role}</div>
-                    </div>
-                    <span className="text-[10px] font-black px-2 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-md">Kat {emp.cat}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 mb-4 text-[10px] uppercase font-bold text-slate-500">
-                    <div className="flex flex-col gap-1">
-                      <span>Lojalnost</span>
-                      <span className={loyaltyBonus > 0 ? 'text-emerald-500' : ''}>+{(loyaltyBonus * 100).toFixed(0)}%</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span>Magistar</span>
-                      <button onClick={() => toggleMA(emp.id)} className={`text-left font-black ${emp.ma ? 'text-amber-500' : 'text-slate-400'}`}>
-                        {emp.ma ? 'AKTIVNO' : 'PASIVNO'}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-end border-t border-slate-800/30 pt-4">
-                    <div>
-                      <div className="text-[8px] text-slate-500 uppercase font-black">Nova Plata 2026</div>
-                      <div className="font-mono font-black text-xl">{formattedCurrency(finalNet)}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-emerald-500 text-[10px] font-bold">+{formattedCurrency(netDelta)}</div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ZBIRNI TROŠKOVI PO GRUPAMA */}
-          <div className={`p-6 md:p-12 border-t border-slate-800 ${isDark ? 'bg-slate-950/60' : 'bg-slate-50'}`}>
-            <h3 className={`text-sm md:text-base font-black uppercase tracking-widest mb-6 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Zbirni troškovi plata po grupama (Godišnji Bruto)
+          {/* TABLE FOOTER: GROUP SUMMARIES */}
+          <div className={`p-16 md:p-24 border-t-2 border-slate-800 ${isDark ? 'bg-slate-950/70' : 'bg-slate-50'}`}>
+            <h3 className="text-xs md:text-sm font-black uppercase tracking-[0.5em] mb-12 text-slate-500">
+              Godišnji Trošak po Grupama (Ukupni Bruto)
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-12">
               {groupSummaries.map((summary, idx) => (
-                <div key={idx} className="flex flex-col">
-                  <div className="text-[9px] md:text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-2">
-                    {summary.label}
-                  </div>
-                  <div className={`text-base md:text-2xl font-mono font-black ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                    {formattedCurrency(summary.value)}
-                  </div>
-                  <div className="text-[9px] text-amber-500 font-bold uppercase mt-1">
-                    Uključuje sve poreze (Faktor 1.63)
+                <div key={idx} className={`p-10 rounded-[3rem] border-2 ${isDark ? 'bg-black/30 border-white/5 shadow-inner' : 'bg-white border-slate-200 shadow-xl'}`}>
+                  <div className="text-xs font-black uppercase text-slate-500 tracking-[0.3em] mb-6">{summary.label}</div>
+                  <div className="text-3xl md:text-4xl font-mono font-black tracking-tighter">{formattedCurrency(summary.value)}</div>
+                  <div className="text-[10px] text-amber-500 font-bold uppercase mt-6 flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full bg-amber-500 animate-pulse shadow-[0_0_15px_#f59e0b]" /> 
+                    Uračunato Bruto (1.63)
                   </div>
                 </div>
               ))}
@@ -434,97 +381,93 @@ const App: React.FC = () => {
         </div>
       </section>
 
-      {/* Report Modal */}
+      {/* FOOTER */}
+      <footer className="max-w-[1600px] mx-auto py-24 border-t-2 border-slate-200 dark:border-slate-900 flex flex-col items-center gap-12 relative z-10">
+         <div className="flex items-center gap-6 font-serif text-3xl md:text-5xl font-bold opacity-30 select-none">
+           <GraduationCap className="text-amber-500 w-16 h-16" />
+           IMH Sarajevo
+         </div>
+         <div className="text-[10px] md:text-sm uppercase tracking-[0.8em] font-black text-slate-500 text-center leading-loose select-none opacity-40">
+           STRATEŠKI SIMULATOR ODRŽIVOSTI • MODEL v2.8 <br />
+           SVA PRAVA ZADRŽANA © 2025-2026 INTERNATIONAL MONTESSORI HOUSE
+         </div>
+      </footer>
+
+      {/* REPORT MODAL */}
       <AnimatePresence>
         {isReportOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-4">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-12 lg:p-20">
             <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setIsReportOpen(false)}
-              className="absolute inset-0 bg-slate-950/95 md:backdrop-blur-xl"
-            ></motion.div>
+              className="absolute inset-0 bg-slate-950/99 backdrop-blur-3xl"
+            />
             <motion.div 
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 50 }}
-              className="relative w-full h-full md:h-auto md:max-w-4xl bg-white text-slate-900 md:rounded-[4rem] overflow-y-auto p-6 md:p-20 shadow-2xl"
+              initial={{ opacity: 0, y: 150, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 150, scale: 0.9 }}
+              className="relative w-full h-full md:h-auto md:max-w-[1300px] bg-white text-slate-900 md:rounded-[6rem] overflow-y-auto p-12 md:p-28 shadow-[0_100px_200px_-40px_rgba(0,0,0,1)]"
             >
-              <button 
-                onClick={() => setIsReportOpen(false)}
-                className="absolute top-6 right-6 md:top-10 md:right-10 text-slate-300 hover:text-rose-500 transition-colors"
-                aria-label="Zatvori"
-              >
-                <X size={32} />
+              <button onClick={() => setIsReportOpen(false)} className="absolute top-12 right-12 text-slate-300 hover:text-red-700 transition-colors">
+                <X size={80} />
               </button>
-
-              <div className="flex items-center gap-3 text-amber-600 mb-8 md:mb-12 font-black uppercase text-xs md:text-sm tracking-[0.2em]">
-                <GraduationCap size={24} />
-                IMH Sarajevo
+              <div className="flex items-center gap-6 text-amber-600 mb-16 font-black uppercase text-sm md:text-base tracking-[0.5em]">
+                <GraduationCap size={48} /> Službeni Dokument Strategije 2026
               </div>
-
-              <h3 className="text-3xl md:text-6xl font-serif font-bold mb-8 md:mb-12 text-slate-950 leading-tight">Finansijski Plan Plata 2026</h3>
+              <h3 className="text-6xl md:text-9xl font-serif font-bold mb-20 md:mb-32 text-slate-950 leading-tight">Plan Plata i Održivosti</h3>
               
-              <div className="space-y-10">
-                <div className="p-8 md:p-12 rounded-3xl md:rounded-[3rem] bg-slate-50 border border-slate-100 italic text-lg md:text-3xl leading-relaxed text-slate-700 relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-2 h-full bg-amber-500" />
-                  "Uz povećanje školarine od <span className="font-black text-amber-600">{tuitionIncrease}%</span>, vrtić ostvaruje <span className="font-black text-emerald-600">{formattedCurrency(stats.revenueGrowth)}</span> godišnjeg rasta prihoda. Ovo u potpunosti pokriva nove povišice plata radnika uz stabilnu čistu dobit od <span className="font-black">{formattedCurrency(stats.operationalBuffer)}</span>."
+              <div className="space-y-24 md:space-y-40">
+                <div className="p-16 md:p-28 rounded-[5rem] bg-slate-50 border-4 border-slate-100 italic text-3xl md:text-6xl leading-relaxed text-slate-800 relative overflow-hidden shadow-2xl">
+                  <div className="absolute top-0 left-0 w-8 h-full bg-amber-500" />
+                  "Uz povećanje školarine od <span className="font-black text-amber-600">{tuitionIncrease}%</span>, Ustanova generiše <span className="font-black text-emerald-600">{formattedCurrency(stats.revenueGrowth)}</span> dodatnog priliva. Plan omogućava povišice uz čistu dobit od <span className="font-black">{formattedCurrency(stats.operationalBuffer)}</span>."
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12">
-                   <div className="p-6 md:p-10 rounded-2xl border border-slate-100 bg-slate-50/50">
-                     <span className="block text-[10px] uppercase font-black text-slate-400 mb-3">Ukupni godišnji Bruto (2025)</span>
-                     <span className="text-xl md:text-3xl font-mono font-black">{formattedCurrency(stats.totalCurrentGross)}</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-16 md:gap-32">
+                   <div className="p-20 rounded-[5rem] border-4 border-slate-100 bg-slate-50 shadow-inner">
+                     <span className="block text-base uppercase font-black text-slate-400 mb-10 tracking-widest">Ukupni Trošak (Bruto) 2025</span>
+                     <span className="text-4xl md:text-6xl font-mono font-black tracking-tighter">{formattedCurrency(stats.totalCurrentGross)}</span>
                    </div>
-                   <div className="p-6 md:p-10 rounded-2xl border border-amber-100 bg-amber-50/30">
-                     <span className="block text-[10px] uppercase font-black text-amber-600 mb-3">Ukupni godišnji Bruto (2026)</span>
-                     <span className="text-xl md:text-3xl font-mono font-black text-amber-600">{formattedCurrency(stats.totalNewGross)}</span>
+                   <div className="p-20 rounded-[5rem] border-4 border-amber-200 bg-amber-50/50 shadow-inner">
+                     <span className="block text-base uppercase font-black text-amber-600 mb-10 tracking-widest">Ukupni Trošak (Bruto) 2026</span>
+                     <span className="text-4xl md:text-6xl font-mono font-black text-amber-600 tracking-tighter">{formattedCurrency(stats.totalNewGross)}</span>
                    </div>
                 </div>
 
-                <div className="pt-12 md:pt-24 border-t border-slate-100 flex justify-between items-end gap-8 text-center">
+                <div className="pt-32 md:pt-48 border-t-4 border-slate-100 flex justify-between items-end gap-16 text-center">
                   <div className="flex-1">
-                    <div className="w-full h-px bg-slate-200 mb-4" />
-                    <div className="text-[9px] md:text-[10px] uppercase font-black text-slate-400">Direktor Ustanove</div>
+                    <div className="w-full h-1 bg-slate-400 mb-10" />
+                    <div className="text-xs md:text-sm uppercase font-black text-slate-500 tracking-[0.4em]">Uprava Ustanove</div>
+                  </div>
+                  <div className="flex-1 hidden sm:block">
+                    <div className="w-full h-1 bg-slate-400 mb-10" />
+                    <div className="text-xs md:text-sm uppercase font-black text-slate-500 tracking-[0.4em]">Pečat Ustanove</div>
                   </div>
                   <div className="flex-1">
-                    <div className="w-full h-px bg-slate-200 mb-4" />
-                    <div className="text-[9px] md:text-[10px] uppercase font-black text-slate-400">Pečat i Datum</div>
+                    <div className="w-full h-1 bg-slate-400 mb-10" />
+                    <div className="text-xs md:text-sm uppercase font-black text-slate-500 tracking-[0.4em]">Osnivač / Vlasnik</div>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-16 flex flex-col sm:flex-row gap-4">
+              <div className="mt-32 md:mt-48 flex flex-col sm:flex-row gap-10">
                 <button 
                   onClick={() => window.print()}
-                  className="flex-1 py-5 md:py-8 bg-slate-950 text-white rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-widest flex items-center justify-center gap-4 shadow-xl active:scale-95 transition-all"
+                  className="flex-1 py-12 md:py-16 bg-slate-950 text-white rounded-[4rem] font-black text-lg md:text-2xl uppercase tracking-[0.5em] flex items-center justify-center gap-10 shadow-2xl active:scale-95 transition-all"
                 >
-                  <Printer size={20} />
-                  Odštampaj Izvještaj za Potpis
+                  <Printer size={48} /> ŠTAMPAJ SLUŽBENI IZVJEŠTAJ
                 </button>
                 <button 
                   onClick={() => setIsReportOpen(false)}
-                  className="px-8 py-5 md:py-8 border-2 border-slate-100 text-slate-400 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-widest hover:border-slate-200 hover:text-slate-600 transition-all"
+                  className="px-16 py-12 md:py-16 border-4 border-slate-300 text-slate-400 rounded-[4rem] font-black text-lg md:text-2xl uppercase tracking-[0.4em] hover:border-slate-500 hover:text-slate-800 transition-all active:scale-95"
                 >
-                  Zatvori
+                  ZATVORI
                 </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-      
-      <footer className="max-w-7xl mx-auto py-12 md:py-20 border-t border-slate-200 dark:border-slate-900 flex flex-col items-center gap-6 relative z-10">
-         <div className="flex items-center gap-3 font-serif text-xl md:text-3xl font-bold opacity-30">
-           <GraduationCap className="text-amber-500 md:w-10 md:h-10" size={24} />
-           IMH Finance
-         </div>
-         <div className="text-[8px] md:text-[10px] uppercase tracking-[0.4em] font-black text-slate-500 text-center leading-loose">
-           STRATEŠKI ALAT ZA PROJEKCIJU 2026 • VERZIJA 2.0 <br />
-           SVA PRAVA ZADRŽANA © 2025 INTERNATIONAL MONTESSORI HOUSE
-         </div>
-      </footer>
+
     </div>
   );
 };
