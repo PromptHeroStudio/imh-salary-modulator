@@ -14,16 +14,13 @@ import {
   EyeOff, 
   Award, 
   Scale, 
-  Target, 
-  FileCheck, 
-  Zap, 
-  CheckCircle2,
   PieChart,
   Filter,
   GraduationCap,
-  LayoutGrid,
   CalendarDays,
-  BarChart3
+  BarChart3,
+  Lock,
+  ArrowRight
 } from 'lucide-react';
 import { 
   BarChart, 
@@ -41,24 +38,80 @@ import { INITIAL_EMPLOYEES, BRUTO_FACTOR } from './constants';
 import { Employee } from './types';
 import { calculateStats, calculateLoyaltyBonus } from './services/financialEngine';
 
-// Komponenta za formatiranje valute po bs-BA standardu (1.000,00 KM)
-const LocalFormattedCurrency: React.FC<{ value: number; className?: string }> = ({ value, className }) => {
-  const formatted = new Intl.NumberFormat('bs-BA', { 
-    minimumFractionDigits: 2, 
-    maximumFractionDigits: 2 
-  }).format(value);
-  return <span className={`font-mono text-black ${className}`}>{formatted} KM</span>;
-};
+// --- UTILITIES ---
 
-// Pomoćna funkcija za formatiranje u KM string
-function formattedCurrency(val: number) {
+// Globalni formatter za bosansku valutu (1.234,56 KM)
+const formatKM = (val: number) => {
   return new Intl.NumberFormat('bs-BA', { 
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   }).format(val) + " KM";
-}
+};
 
+// React komponenta za prikaz valute
+const CurrencyDisplay: React.FC<{ value: number; className?: string }> = ({ value, className }) => {
+  const formatted = new Intl.NumberFormat('bs-BA', { 
+    minimumFractionDigits: 2, 
+    maximumFractionDigits: 2 
+  }).format(value);
+  return <span className={`font-mono whitespace-nowrap ${className}`}>{formatted} KM</span>;
+};
+
+// --- LOGIN KOMPONENTA ---
+const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password === 'imh2026') {
+      onLogin();
+    } else {
+      setError(true);
+      setTimeout(() => setError(false), 2000);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center p-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }} 
+        animate={{ opacity: 1, y: 0 }} 
+        className="w-full max-w-md bg-white border-4 border-black p-12 rounded-[3rem] shadow-2xl text-center"
+      >
+        <img src="https://i.postimg.cc/MZ4w91zf/imh-logo.png" alt="IMH Logo" className="h-24 mx-auto mb-8" />
+        <h1 className="text-2xl font-black uppercase tracking-widest mb-2">IMH Salary Moderator</h1>
+        <p className="text-sm text-slate-500 font-bold uppercase tracking-[0.2em] mb-10">Protected Financial Environment</p>
+        
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <div className="relative">
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <input 
+              type="password" 
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="UNESITE PRISTUPNU ŠIFRU"
+              className={`w-full bg-slate-50 border-4 ${error ? 'border-red-500' : 'border-slate-200'} p-4 pl-12 rounded-xl font-bold text-center outline-none focus:border-black transition-colors uppercase placeholder:text-slate-300`}
+            />
+          </div>
+          <button 
+            type="submit" 
+            className="w-full bg-black text-white p-5 rounded-xl font-black uppercase tracking-widest hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
+          >
+            Pristupi <ArrowRight size={20} />
+          </button>
+        </form>
+      </motion.div>
+      <div className="mt-8 text-xs font-black uppercase tracking-[0.5em] text-slate-300">
+        © 2026 International Montessori House
+      </div>
+    </div>
+  );
+};
+
+// --- MAIN APP ---
 const App: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [employees] = useState<Employee[]>(INITIAL_EMPLOYEES);
   const [tuitionIncrease, setTuitionIncrease] = useState<number>(6);
   const [isReportOpen, setIsReportOpen] = useState(false);
@@ -113,12 +166,24 @@ const App: React.FC = () => {
     });
   }, [employees, activeCatFilter, activeMaFilter, activeYearFilter]);
 
+  // Totali za sticky footer - OPREZNA KALKULACIJA
   const totals = useMemo(() => {
-    const totalCurrentNet = employees.reduce((sum, e) => sum + e.currentNet, 0);
-    const totalTargetNet = employees.reduce((sum, e) => sum + e.targetNet, 0);
+    const totalCurrentNet = visibleEmployees.reduce((sum, e) => sum + e.currentNet, 0);
+    const totalTargetNet = visibleEmployees.reduce((sum, e) => sum + e.targetNet, 0);
     const totalNetIncrease = totalTargetNet - totalCurrentNet;
-    const totalBrutoCost = totalNetIncrease * BRUTO_FACTOR;
+    // Formula: (Nova Plata - Stara Plata) * 1.63
+    const totalBrutoCost = visibleEmployees.reduce((sum, e) => sum + (e.targetNet - e.currentNet) * BRUTO_FACTOR, 0);
+    
     return { totalCurrentNet, totalTargetNet, totalNetIncrease, totalBrutoCost };
+  }, [visibleEmployees]);
+
+  // Totali za cijelu firmu (neovisno o filterima) za KPI kartice
+  const globalTotals = useMemo(() => {
+     const totalNetIncrease = employees.reduce((sum, e) => sum + (e.targetNet - e.currentNet), 0);
+     return {
+         totalTargetNet: employees.reduce((sum, e) => sum + e.targetNet, 0),
+         totalBrutoCost: employees.reduce((sum, e) => sum + (e.targetNet - e.currentNet) * BRUTO_FACTOR, 0)
+     }
   }, [employees]);
 
   const waterfallData = useMemo(() => {
@@ -131,9 +196,9 @@ const App: React.FC = () => {
 
     return [
       { name: 'PRIHOD', val: prihod, fill: '#10B981' },
-      { name: 'UPRAVA', val: -costA, fill: '#000000' },
-      { name: 'ODGAJATELJI', val: -costB, fill: '#000000' },
-      { name: 'POMOĆNO', val: -costCD, fill: '#000000' },
+      { name: 'UPRAVA', val: -costA, fill: '#0f172a' }, // Dark Slate
+      { name: 'ODGAJATELJI', val: -costB, fill: '#334155' }, // Slate 700
+      { name: 'POMOĆNO', val: -costCD, fill: '#64748b' }, // Slate 500
       { name: 'SUFICIT', val: dobit, fill: stats.isSustainable ? '#10B981' : '#EF4444' },
     ];
   }, [stats]);
@@ -141,140 +206,185 @@ const App: React.FC = () => {
   const toggleReport = useCallback(() => setIsReportOpen(prev => !prev), []);
   const togglePrivacy = useCallback(() => setPrivacyMode(prev => !prev), []);
 
+  if (!isAuthenticated) {
+    return <LoginScreen onLogin={() => setIsAuthenticated(true)} />;
+  }
+
   return (
-    <div className="min-h-screen bg-white text-black font-sans w-full max-w-none antialiased flex flex-col p-4 md:p-6 lg:p-8 text-lg">
+    <div className="min-h-screen bg-white text-black font-sans w-full max-w-none antialiased flex flex-col p-4 md:p-8">
       
+      {/* Background Ambience */}
       <div className={`fixed inset-0 pointer-events-none z-0 transition-opacity duration-1000 ${stats.isSustainable ? 'opacity-[0.02] bg-emerald-500' : 'opacity-[0.05] bg-red-500'}`} />
 
       {/* HEADER */}
-      <header className="w-full mb-12 flex flex-col xl:flex-row items-center justify-between gap-8 relative z-10 border-b-8 border-black pb-12">
-        <div className="flex items-center gap-10">
+      <header className="w-full mb-12 flex flex-col 2xl:flex-row items-center justify-between gap-8 relative z-10 border-b-8 border-black pb-10 no-print">
+        <div className="flex items-center gap-8">
           <img src="https://i.postimg.cc/MZ4w91zf/imh-logo.png" alt="IMH Logo" className="h-[80px] object-contain" />
           <div className="h-16 w-2 bg-black hidden md:block"></div>
-          <h1 className="text-4xl md:text-6xl font-serif font-black tracking-tighter text-black uppercase">
-            Matrica strategije plata 2026
-          </h1>
+          <div>
+            <h1 className="text-4xl xl:text-5xl font-serif font-black tracking-tighter text-black uppercase">
+              Matrica Strategije 2026
+            </h1>
+            <p className="text-sm font-bold uppercase tracking-[0.3em] text-slate-500 mt-1">International Montessori House</p>
+          </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row items-center gap-8 w-full xl:w-auto">
-          <div className="flex items-center gap-8 bg-slate-50 px-10 py-6 rounded-3xl border-4 border-black w-full sm:w-auto shadow-2xl">
-            <span className="text-sm font-black uppercase text-black tracking-[0.2em] whitespace-nowrap">Korekcija školarine:</span>
+        <div className="flex flex-col xl:flex-row items-center gap-6 w-full 2xl:w-auto">
+          {/* Slider Control */}
+          <div className="flex items-center gap-6 bg-slate-50 px-8 py-4 rounded-3xl border-4 border-black w-full xl:w-auto shadow-xl">
+            <div className="flex flex-col">
+              <span className="text-xs font-black uppercase text-slate-400 tracking-widest">KOREKCIJA ŠKOLARINE</span>
+              <span className="text-black font-black text-4xl">+{tuitionIncrease}%</span>
+            </div>
             <input 
               type="range" min="0" max="10" step="0.5"
               value={tuitionIncrease}
               onChange={(e) => setTuitionIncrease(parseFloat(e.target.value))}
-              className="w-64 h-4 bg-slate-200 rounded-full appearance-none cursor-pointer accent-black"
+              className="w-48 h-3 bg-slate-200 rounded-full appearance-none cursor-pointer accent-emerald-600"
             />
-            <span className="text-black font-black text-5xl min-w-[120px]">+{tuitionIncrease}%</span>
           </div>
           
-          <div className="flex gap-6 w-full lg:w-auto">
+          <div className="flex gap-4 w-full xl:w-auto">
             <button 
               onClick={toggleReport} 
-              className="flex-1 lg:flex-none px-12 py-6 bg-black text-white rounded-2xl font-black text-xl uppercase tracking-widest shadow-2xl hover:bg-slate-800 transition-all flex items-center justify-center gap-4 active:scale-95"
+              className="flex-1 xl:flex-none px-8 py-4 bg-black text-white rounded-2xl font-black text-lg uppercase tracking-widest shadow-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-3 active:scale-95"
             >
-              <FileText size={28} /> GENERIRAJ IZVJEŠTAJ
+              <FileText size={24} /> GENERIŠI IZVJEŠTAJ
             </button>
             
             <button 
               onClick={togglePrivacy}
-              className="p-6 rounded-2xl border-4 border-black bg-white text-black shadow-xl hover:bg-slate-50 transition-all active:scale-95"
-              title="Privatni način rada"
+              className="p-4 rounded-2xl border-4 border-black bg-white text-black shadow-xl hover:bg-slate-50 transition-all active:scale-95"
+              title={privacyMode ? "Prikaži podatke" : "Sakrij podatke"}
             >
-              {privacyMode ? <EyeOff size={32} /> : <Eye size={32} />}
+              {privacyMode ? <EyeOff size={28} /> : <Eye size={28} />}
             </button>
           </div>
         </div>
       </header>
 
-      {/* STRATEŠKE KARTICE */}
-      <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-16 relative z-10">
-        <motion.div className="p-12 rounded-[3rem] border-8 border-black bg-white shadow-2xl flex flex-col justify-between h-64">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-black uppercase tracking-[0.3em] text-black">Prirast prihoda</span>
-            <TrendingUp className="text-emerald-600 w-12 h-12" />
+      {/* STRATEŠKE KARTICE (KPI) */}
+      <div className="w-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8 mb-12 relative z-10 no-print">
+        <motion.div className="p-8 rounded-[2.5rem] border-4 border-black bg-white shadow-xl flex flex-col justify-between h-56 group hover:scale-[1.01] transition-transform">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Prirast Prihoda</span>
+            <div className="p-3 bg-emerald-100 rounded-2xl text-emerald-700"><TrendingUp size={28} /></div>
           </div>
-          <LocalFormattedCurrency value={stats.dodatniPrihod} className="text-5xl font-black" />
-        </motion.div>
-
-        <motion.div className="p-12 rounded-[3rem] border-8 border-black bg-white shadow-2xl flex flex-col justify-between h-64">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-black uppercase tracking-[0.3em] text-black">Ukupni Bruto Trošak</span>
-            <Scale className="text-red-600 w-12 h-12" />
-          </div>
-          <div className="text-5xl font-mono font-black text-black">
-            -<LocalFormattedCurrency value={totals.totalBrutoCost} />
+          <CurrencyDisplay value={stats.dodatniPrihod} className="text-4xl 2xl:text-5xl font-black text-black" />
+          <div className="w-full bg-slate-100 h-2 rounded-full mt-4 overflow-hidden">
+            <div className="bg-emerald-500 h-full rounded-full" style={{width: '100%'}}></div>
           </div>
         </motion.div>
 
-        <motion.div className="p-12 rounded-[3rem] border-8 border-black bg-white shadow-2xl flex flex-col justify-between h-64">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-black uppercase tracking-[0.3em] text-black">Neto Isplatni Fond</span>
-            <Users className="text-black w-12 h-12 opacity-10" />
+        <motion.div className="p-8 rounded-[2.5rem] border-4 border-black bg-white shadow-xl flex flex-col justify-between h-56 group hover:scale-[1.01] transition-transform">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Bruto Trošak</span>
+            <div className="p-3 bg-red-100 rounded-2xl text-red-700"><Scale size={28} /></div>
           </div>
-          <LocalFormattedCurrency value={totals.totalTargetNet} className="text-5xl font-black" />
+          <div className="text-4xl 2xl:text-5xl font-mono font-black text-black tracking-tight">
+            -<CurrencyDisplay value={globalTotals.totalBrutoCost} />
+          </div>
+          <div className="text-xs font-bold text-red-500 uppercase tracking-widest mt-2">Faktor 1.63 (Canton SA)</div>
         </motion.div>
 
-        <motion.div className={`p-12 rounded-[3rem] border-8 ${stats.isSustainable ? 'border-emerald-600 bg-emerald-50' : 'border-red-600 bg-red-50'} shadow-2xl flex flex-col justify-between h-64`}>
-          <div className="flex justify-between items-center">
-            <span className={`text-sm font-black uppercase tracking-[0.3em] ${stats.isSustainable ? 'text-emerald-700' : 'text-red-700'}`}>Operativni Suficit</span>
-            <Wallet className={`${stats.isSustainable ? 'text-emerald-600' : 'text-red-600'} w-12 h-12`} />
+        <motion.div className="p-8 rounded-[2.5rem] border-4 border-black bg-white shadow-xl flex flex-col justify-between h-56 group hover:scale-[1.01] transition-transform">
+          <div className="flex justify-between items-start">
+            <span className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">Neto Isplatni Fond</span>
+            <div className="p-3 bg-blue-100 rounded-2xl text-blue-700"><Users size={28} /></div>
           </div>
-          <LocalFormattedCurrency 
+          <CurrencyDisplay value={globalTotals.totalTargetNet} className="text-4xl 2xl:text-5xl font-black text-black" />
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">Ciljana vrijednost 2026</div>
+        </motion.div>
+
+        <motion.div className={`p-8 rounded-[2.5rem] border-4 ${stats.isSustainable ? 'border-emerald-600 bg-emerald-50' : 'border-red-600 bg-red-50'} shadow-xl flex flex-col justify-between h-56 transition-colors duration-500`}>
+          <div className="flex justify-between items-start">
+            <span className={`text-xs font-black uppercase tracking-[0.2em] ${stats.isSustainable ? 'text-emerald-700' : 'text-red-700'}`}>Operativni Suficit</span>
+            <div className={`p-3 rounded-2xl ${stats.isSustainable ? 'bg-emerald-200 text-emerald-800' : 'bg-red-200 text-red-800'}`}>
+              <Wallet size={28} />
+            </div>
+          </div>
+          <CurrencyDisplay 
             value={stats.cistaDobit} 
-            className={`text-5xl font-black ${stats.isSustainable ? 'text-emerald-700' : 'text-red-700'}`} 
+            className={`text-4xl 2xl:text-5xl font-black ${stats.isSustainable ? 'text-emerald-700' : 'text-red-700'}`} 
           />
+          <div className={`text-xs font-black uppercase tracking-widest mt-2 flex items-center gap-2 ${stats.isSustainable ? 'text-emerald-700' : 'text-red-700'}`}>
+            {stats.isSustainable ? <ShieldCheck size={16} /> : <ShieldAlert size={16} />}
+            {stats.isSustainable ? 'ODRŽIVO' : 'RIZIČNO'}
+          </div>
         </motion.div>
       </div>
 
-      {/* DOMINANTNI ANALITIČKI PANEL */}
-      <div className="w-full grid grid-cols-1 xl:grid-cols-12 gap-12 mb-16 relative z-10">
+      {/* CHARTS ROW (Full Width) */}
+      <div className="w-full grid grid-cols-1 xl:grid-cols-12 gap-8 mb-12 relative z-10 no-print">
         
-        {/* SIGURNOST BUDŽETA - DOMINANTAN GAUGE (70%) */}
-        <div className="xl:col-span-8">
-          <div className="p-16 rounded-[4rem] border-8 border-black bg-white shadow-2xl flex flex-col items-center justify-center text-center min-h-[650px]">
-            <h2 className="text-3xl font-black uppercase tracking-[0.5em] text-black mb-16">SIGURNOST BUDŽETA</h2>
-            <div className="relative mb-12 flex items-center justify-center w-full h-full">
-              <svg className="w-full h-auto max-w-xl transform -rotate-90 aspect-square">
-                <circle cx="200" cy="200" r="180" stroke="#F1F5F9" strokeWidth="35" fill="transparent" />
+        {/* CHART 1: SIGURNOST BUDŽETA (50%) */}
+        <div className="xl:col-span-6">
+          <div className="p-10 rounded-[3rem] border-4 border-black bg-white shadow-2xl flex flex-col items-center justify-center text-center h-[500px]">
+            <h2 className="text-2xl font-black uppercase tracking-[0.3em] text-black mb-8 flex items-center gap-3">
+              <ShieldCheck size={32} /> Sigurnost Budžeta
+            </h2>
+            <div className="relative flex items-center justify-center w-full h-full pb-8">
+              <svg className="w-full h-full max-h-[300px] transform -rotate-90" viewBox="0 0 400 400">
+                <circle cx="200" cy="200" r="160" stroke="#f1f5f9" strokeWidth="30" fill="transparent" />
                 <motion.circle
-                  cx="200" cy="200" r="180" stroke="currentColor" strokeWidth="35" fill="transparent"
-                  strokeDasharray="1131"
-                  initial={{ strokeDashoffset: 1131 }}
-                  animate={{ strokeDashoffset: 1131 - (Math.max(0, Math.min(stats.cistaDobit / 60000, 1)) * 1131) }}
-                  transition={{ duration: 1.5 }}
+                  cx="200" cy="200" r="160" stroke="currentColor" strokeWidth="30" fill="transparent"
+                  strokeDasharray="1005"
+                  initial={{ strokeDashoffset: 1005 }}
+                  animate={{ strokeDashoffset: 1005 - (Math.max(0, Math.min(stats.cistaDobit / 40000, 1)) * 1005) }}
+                  transition={{ duration: 1.5, ease: "easeOut" }}
                   className={stats.isSustainable ? "text-emerald-500" : "text-red-600"}
+                  strokeLinecap="round"
                 />
               </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                {stats.isSustainable ? <ShieldCheck className="text-emerald-500 mb-6" size={160} /> : <ShieldAlert className="text-red-600 mb-6 animate-pulse" size={160} />}
-                <div className={`text-2xl font-black uppercase tracking-[0.6em] ${stats.isSustainable ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {stats.isSustainable ? 'FISKALNO SAMOODRŽIVO' : 'KRITIČAN RIZIK'}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pb-8">
+                <div className={`text-4xl font-black ${stats.isSustainable ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {stats.isSustainable ? '100%' : 'KRITIČNO'}
                 </div>
+                <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mt-2">STATUS</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* TOK KAPITALA - SPOREDNI GRAFIKON (30%) */}
-        <div className="xl:col-span-4">
-          <div className="p-12 rounded-[4rem] border-8 border-black bg-white shadow-2xl flex flex-col h-full min-h-[650px]">
-             <h2 className="text-xl font-black uppercase tracking-[0.4em] text-black mb-12">TOK KAPITALA</h2>
-             <div className="flex-1 w-full min-h-[400px]">
+        {/* CHART 2: TOK KAPITALA (Waterfall) (50%) */}
+        <div className="xl:col-span-6">
+          <div className="p-10 rounded-[3rem] border-4 border-black bg-white shadow-2xl flex flex-col h-[500px]">
+             <h2 className="text-2xl font-black uppercase tracking-[0.3em] text-black mb-8 flex items-center gap-3">
+               <TrendingUp size={32} /> Tok Kapitala
+             </h2>
+             <div className="flex-1 w-full h-full min-h-0">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={waterfallData} margin={{top: 20, right: 20, left: 0, bottom: 40}}>
-                    <CartesianGrid strokeDasharray="8 8" vertical={false} stroke="#E2E8F0" />
-                    <XAxis dataKey="name" fontSize={11} fontWeight="900" axisLine={false} tickLine={false} dy={20} stroke="#000000" />
+                  <BarChart data={waterfallData} margin={{top: 20, right: 10, left: 0, bottom: 20}}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis 
+                      dataKey="name" 
+                      fontSize={10} 
+                      fontWeight="800" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      dy={10} 
+                      stroke="#64748b" 
+                      interval={0}
+                    />
                     <YAxis hide />
                     <Tooltip 
-                      cursor={{fill: 'rgba(0,0,0,0.05)'}} 
-                      contentStyle={{ borderRadius: '32px', border: '6px solid black', boxShadow: '0 35px 60px -15px rgba(0,0,0,0.3)', padding: '30px' }}
-                      formatter={(val: number) => [<LocalFormattedCurrency value={val} className="text-2xl" />, 'Iznos']}
+                      cursor={{fill: 'transparent'}}
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-black text-white p-4 rounded-xl shadow-xl">
+                              <p className="font-bold text-sm mb-1">{payload[0].payload.name}</p>
+                              <p className="font-mono text-emerald-400 text-lg">{formatKM(payload[0].value as number)}</p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
                     />
-                    <Bar dataKey="val" radius={[12, 12, 12, 12]}>
+                    <ReferenceLine y={0} stroke="#000" strokeWidth={2} />
+                    <Bar dataKey="val" radius={[6, 6, 6, 6]} barSize={60}>
                       {waterfallData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
                     </Bar>
-                    <ReferenceLine y={0} stroke="#000000" strokeWidth={4} />
                   </BarChart>
                 </ResponsiveContainer>
              </div>
@@ -282,404 +392,352 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* TABELA ZAPOSLENIKA - PUNA ŠIRINA */}
-      <div className="w-full relative z-10 mb-16">
-        <div className="bg-white border-8 border-black rounded-[4rem] shadow-2xl overflow-hidden flex flex-col w-full">
-          <div className="p-10 border-b-8 border-black flex justify-between items-center bg-slate-50">
-             <h3 className="text-3xl font-black uppercase tracking-[0.3em] flex items-center gap-6">
-               <Users size={48} /> MATRICA ZAPOSLENIKA 
-               {activeCatFilter !== 'ALL' && <span className="text-emerald-600 text-sm ml-2 font-mono tracking-normal">(CAT {activeCatFilter})</span>}
-               {activeMaFilter !== 'ALL' && <span className="text-emerald-600 text-sm ml-2 font-mono tracking-normal">({activeMaFilter === 'MA_ONLY' ? 'MA' : 'NO MA'})</span>}
-               {activeYearFilter !== 'ALL' && <span className="text-emerald-600 text-sm ml-2 font-mono tracking-normal">({activeYearFilter === 'BEFORE_2020' ? '< 2020' : '> 2020'})</span>}
+      {/* FILTER CONTROL PANEL */}
+      <div className="w-full mb-8 relative z-10 no-print">
+        <div className="bg-white border-4 border-black rounded-[3rem] p-8 shadow-xl">
+           <div className="flex flex-col xl:flex-row gap-8 justify-between">
+              
+              {/* Filter: Categories */}
+              <div className="flex-1">
+                 <div className="flex items-center gap-3 mb-4 text-slate-400">
+                    <Filter size={20} />
+                    <span className="text-xs font-black uppercase tracking-widest">Kategorije</span>
+                 </div>
+                 <div className="flex gap-2">
+                    {['ALL', 'AB', 'CD'].map((opt) => (
+                       <button
+                         key={opt}
+                         onClick={() => setActiveCatFilter(opt as any)}
+                         className={`flex-1 py-3 rounded-xl text-sm font-black uppercase tracking-wider transition-all border-2 ${activeCatFilter === opt ? 'bg-black text-white border-black' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
+                       >
+                         {opt === 'ALL' ? 'Sve' : opt === 'AB' ? 'A & B' : 'C & D'}
+                       </button>
+                    ))}
+                 </div>
+              </div>
+
+              {/* Filter: MA Status */}
+              <div className="flex-1">
+                 <div className="flex items-center gap-3 mb-4 text-slate-400">
+                    <GraduationCap size={20} />
+                    <span className="text-xs font-black uppercase tracking-widest">Ekspertiza (MA)</span>
+                 </div>
+                 <div className="flex gap-2">
+                    {['ALL', 'MA_ONLY', 'NO_MA'].map((opt) => (
+                       <button
+                         key={opt}
+                         onClick={() => setActiveMaFilter(opt as any)}
+                         className={`flex-1 py-3 rounded-xl text-sm font-black uppercase tracking-wider transition-all border-2 ${activeMaFilter === opt ? 'bg-black text-white border-black' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
+                       >
+                         {opt === 'ALL' ? 'Sve' : opt === 'MA_ONLY' ? 'Sa MA' : 'Bez MA'}
+                       </button>
+                    ))}
+                 </div>
+              </div>
+
+              {/* Filter: Year */}
+              <div className="flex-1">
+                 <div className="flex items-center gap-3 mb-4 text-slate-400">
+                    <CalendarDays size={20} />
+                    <span className="text-xs font-black uppercase tracking-widest">Staž</span>
+                 </div>
+                 <div className="flex gap-2">
+                    {['ALL', 'BEFORE_2020', 'AFTER_2020'].map((opt) => (
+                       <button
+                         key={opt}
+                         onClick={() => setActiveYearFilter(opt as any)}
+                         className={`flex-1 py-3 rounded-xl text-sm font-black uppercase tracking-wider transition-all border-2 ${activeYearFilter === opt ? 'bg-black text-white border-black' : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'}`}
+                       >
+                         {opt === 'ALL' ? 'Sve' : opt === 'BEFORE_2020' ? '< 2020' : '> 2020'}
+                       </button>
+                    ))}
+                 </div>
+              </div>
+
+           </div>
+        </div>
+      </div>
+
+      {/* MAIN TABLE (STICKY FOOTER IMPLEMENTED) */}
+      <div className="w-full relative z-10 mb-12 no-print">
+        <div className="bg-white border-4 border-black rounded-[3rem] shadow-2xl overflow-hidden flex flex-col w-full h-[800px]"> {/* Fixed height for sticky behavior */}
+          
+          <div className="p-8 border-b-4 border-black flex justify-between items-center bg-slate-50 shrink-0">
+             <h3 className="text-2xl font-black uppercase tracking-[0.2em] flex items-center gap-4">
+               <Users size={32} /> Matrica Zaposlenika 
+               <span className="px-4 py-1 bg-black text-white text-xs rounded-full">{visibleEmployees.length}</span>
              </h3>
-             <span className="text-lg text-black font-black uppercase tracking-widest border-4 border-black px-8 py-4 rounded-full bg-white shadow-md">{visibleEmployees.length} POZICIJA PRIKAZANO</span>
           </div>
           
-          <div className="overflow-x-auto">
+          <div className="overflow-auto flex-1 relative">
             <table className="w-full text-left border-collapse">
-              <thead className="sticky top-0 bg-white z-20 shadow-xl">
-                <tr className="text-sm font-black uppercase tracking-[0.4em] text-black border-b-8 border-black">
-                  <th className="px-12 py-8 whitespace-nowrap w-1/4">ZAPOSLENIK / ULOGA</th>
-                  <th className="px-6 py-8 text-center whitespace-nowrap">LOJALNOST</th>
-                  <th className="px-6 py-8 text-center whitespace-nowrap">MA</th>
-                  <th className="px-8 py-8 text-right whitespace-nowrap">BAZNI NETO</th>
-                  <th className="px-8 py-8 text-right text-emerald-700 whitespace-nowrap">NOVI NETO</th>
-                  <th className="px-12 py-8 text-right text-red-600 whitespace-nowrap">BRUTO TERET</th>
+              <thead className="sticky top-0 bg-white z-20 shadow-sm ring-1 ring-black/5">
+                <tr className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 border-b-2 border-slate-100">
+                  <th className="px-8 py-6 whitespace-nowrap bg-white">Zaposlenik</th>
+                  <th className="px-4 py-6 text-center whitespace-nowrap bg-white">Kat.</th>
+                  <th className="px-4 py-6 text-center whitespace-nowrap bg-white">Početak</th>
+                  <th className="px-4 py-6 text-center whitespace-nowrap bg-white">Lojalnost</th>
+                  <th className="px-4 py-6 text-center whitespace-nowrap bg-white">MA</th>
+                  <th className="px-6 py-6 text-right whitespace-nowrap bg-white">Bazni Neto</th>
+                  <th className="px-6 py-6 text-right text-emerald-700 whitespace-nowrap bg-white">Novi Neto</th>
+                  <th className="px-8 py-6 text-right text-red-600 whitespace-nowrap bg-white">Bruto Teret</th>
                 </tr>
               </thead>
-              <tbody className="divide-y-4 divide-slate-100">
+              <tbody className="divide-y divide-slate-100">
                 {visibleEmployees.map((emp) => {
                   const loyalty = calculateLoyaltyBonus(emp.start);
                   const raiseNet = emp.targetNet - emp.currentNet;
                   const raiseBruto = raiseNet * BRUTO_FACTOR;
                   return (
-                    <tr key={emp.id} className="hover:bg-slate-50 transition-all duration-500 group">
-                      <td className="px-12 py-10">
-                        <div className="font-black text-3xl text-black uppercase tracking-tighter">{privacyMode ? `RADNIK ID #${emp.id}` : emp.name}</div>
-                        <div className="text-sm text-slate-500 font-black uppercase mt-2 tracking-[0.2em]">{emp.role}</div>
+                    <tr key={emp.id} className="hover:bg-slate-50 transition-colors group">
+                      <td className="px-8 py-4">
+                        <div className="font-bold text-lg text-black">{privacyMode ? `ZAPOSLENIK #${emp.id}` : emp.name}</div>
+                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">{emp.role}</div>
                       </td>
-                      <td className="px-6 py-10 text-center">
-                        <span className={`text-2xl font-black ${loyalty > 0 ? 'text-emerald-600' : 'text-slate-200'}`}>+{loyalty}%</span>
+                      <td className="px-4 py-4 text-center font-black text-slate-300">{emp.cat}</td>
+                      <td className="px-4 py-4 text-center font-mono text-slate-500">{emp.start}</td>
+                      <td className="px-4 py-4 text-center">
+                        <span className={`px-3 py-1 rounded-full text-xs font-black ${loyalty > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+                          +{loyalty}%
+                        </span>
                       </td>
-                      <td className="px-6 py-10 text-center">
-                        {emp.ma ? <Award size={40} className="text-black mx-auto" /> : <span className="opacity-5">-</span>}
+                      <td className="px-4 py-4 text-center">
+                        {emp.ma ? <div className="flex justify-center"><Award size={20} className="text-amber-500" /></div> : <span className="text-slate-200">-</span>}
                       </td>
-                      <td className="px-8 py-10 text-right">
-                        <LocalFormattedCurrency value={emp.currentNet} className="text-lg opacity-40" />
+                      <td className="px-6 py-4 text-right">
+                        <CurrencyDisplay value={emp.currentNet} className="text-slate-400" />
                       </td>
-                      <td className="px-8 py-10 text-right">
-                        <LocalFormattedCurrency value={emp.targetNet} className="text-4xl font-black text-black" />
-                        <div className="text-xs text-emerald-600 font-black uppercase mt-2">RAST: +{formattedCurrency(raiseNet)}</div>
+                      <td className="px-6 py-4 text-right">
+                        <CurrencyDisplay value={emp.targetNet} className="text-xl font-black text-black" />
                       </td>
-                      <td className="px-12 py-10 text-right">
-                        <LocalFormattedCurrency value={raiseBruto} className="text-4xl font-black text-red-600" />
-                        <div className="text-xs text-red-600/40 font-black uppercase mt-2">KOEFICIJENT 1.63</div>
+                      <td className="px-8 py-4 text-right">
+                        <div className="flex flex-col items-end">
+                           <CurrencyDisplay value={raiseBruto} className="text-red-600 font-bold" />
+                           <span className="text-[10px] text-red-300 font-bold uppercase tracking-wider">+{formatKM(raiseNet)} NETO</span>
+                        </div>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
+              
+              {/* STICKY FOOTER */}
+              <tfoot className="sticky bottom-0 bg-black text-white z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.2)]">
+                 <tr>
+                   <td colSpan={5} className="px-8 py-6 text-right font-black uppercase tracking-[0.2em] text-slate-400 text-sm">
+                     UKUPNO (PRIKAZANO):
+                   </td>
+                   <td className="px-6 py-6 text-right font-mono font-bold text-slate-300">
+                     {formatKM(totals.totalCurrentNet)}
+                   </td>
+                   <td className="px-6 py-6 text-right font-mono font-bold text-emerald-400 text-lg">
+                     {formatKM(totals.totalTargetNet)}
+                   </td>
+                   <td className="px-8 py-6 text-right font-mono font-black text-white text-xl">
+                     {formatKM(totals.totalBrutoCost)}
+                   </td>
+                 </tr>
+              </tfoot>
             </table>
           </div>
-          
-          <div className="bg-black text-white p-12 grid grid-cols-1 md:grid-cols-3 gap-12 shadow-[0_-30px_70px_rgba(0,0,0,0.5)] z-30">
-             <div className="flex flex-col">
-               <span className="text-xs font-black uppercase tracking-[0.6em] text-slate-500 mb-4">UKUPNI BAZNI NETO</span>
-               <LocalFormattedCurrency value={totals.totalCurrentNet} className="text-3xl font-black text-white opacity-50" />
-             </div>
-             <div className="flex flex-col border-l-4 border-slate-800 pl-12">
-               <span className="text-xs font-black uppercase tracking-[0.6em] text-emerald-500 mb-4">UKUPNI NOVI NETO</span>
-               <LocalFormattedCurrency value={totals.totalTargetNet} className="text-4xl font-black text-emerald-400" />
-             </div>
-             <div className="flex flex-col border-l-8 border-emerald-600 pl-12 bg-emerald-950/30 p-8 rounded-3xl shadow-emerald-500/20 shadow-xl">
-               <span className="text-xs font-black uppercase tracking-[0.6em] text-emerald-500 mb-4">UKUPNI BRUTO TERET</span>
-               <LocalFormattedCurrency value={totals.totalBrutoCost} className="text-5xl font-black text-emerald-500 drop-shadow-[0_0_25px_rgba(16,185,129,0.4)]" />
-               <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 mt-4 italic">FINALNI MJESEČNI TROŠAK STRATEGIJE</span>
-             </div>
-          </div>
         </div>
       </div>
 
-      {/* ZBIRNI TROŠKOVI PO GRUPAMA */}
-      <div className="w-full mb-16 relative z-10">
-        <h3 className="text-4xl font-black uppercase tracking-[0.4em] text-black mb-10 flex items-center gap-6">
-          <PieChart size={40} /> ZBIRNI TROŠKOVI PO GRUPAMA
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
-          {stats.categorySummaries.map((catSum) => (
-            <div key={catSum.cat} className="p-10 rounded-[3rem] border-8 border-black bg-white shadow-2xl flex flex-col justify-between hover:scale-[1.02] transition-transform duration-300">
-              <div>
-                <div className="flex justify-between items-start mb-6">
-                  <span className="bg-black text-white px-6 py-2 rounded-full font-black text-2xl">{catSum.cat}</span>
-                  <div className="flex flex-col items-end">
-                    <span className="text-xs font-black uppercase tracking-widest text-slate-400">{catSum.count} zaposlenika</span>
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Teret povišica</span>
-                  </div>
-                </div>
-                <h4 className="text-2xl font-black uppercase leading-tight mb-8 min-h-[4rem] flex items-center">{catSum.label}</h4>
-              </div>
-              <div className="border-t-4 border-slate-100 pt-6 mt-4">
-                <LocalFormattedCurrency value={catSum.totalRaiseCostBruto} className="text-4xl font-black" />
-                <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 mt-2 italic">UKUPNO BRUTO (1.63)</div>
-              </div>
+      {/* ADDITIONAL CHARTS AREA */}
+      <div className="w-full grid grid-cols-1 xl:grid-cols-2 gap-8 mb-12 relative z-10 no-print">
+         
+         {/* LOYALTY CHART */}
+         <div className="p-10 rounded-[3rem] border-4 border-black bg-white shadow-2xl h-[500px] flex flex-col">
+            <h3 className="text-xl font-black uppercase tracking-[0.2em] mb-8 flex items-center gap-3">
+              <BarChart3 size={24} /> Teret po lojalnosti
+            </h3>
+            <div className="flex-1 min-h-0 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={loyaltyCostData} margin={{top: 20, right: 30, left: 20, bottom: 20}}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis 
+                    dataKey="period" 
+                    fontSize={11} 
+                    fontWeight="700" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    dy={10} 
+                  />
+                  <YAxis hide />
+                  <Tooltip 
+                    cursor={{fill: 'rgba(0,0,0,0.03)'}}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-white border-2 border-black p-4 rounded-xl shadow-lg">
+                            <p className="font-bold text-xs uppercase text-slate-400 mb-1">{payload[0].payload.period}</p>
+                            <p className="font-mono text-xl font-black">{formatKM(payload[0].value as number)}</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar dataKey="iznos" radius={[8, 8, 8, 8]} barSize={50}>
+                    {loyaltyCostData.map((entry, index) => (
+                      <Cell key={`cell-loyalty-${index}`} fill={entry.boja} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
-          ))}
-        </div>
-      </div>
+         </div>
 
-      {/* KUMULATIVNI BRUTO TROŠAK PO PERIODU ZAPOSLENJA (LOJALNOSTI) */}
-      <div className="w-full mb-16 relative z-10">
-        <div className="p-12 rounded-[4rem] border-8 border-black bg-white shadow-2xl flex flex-col min-h-[500px]">
-          <h3 className="text-3xl font-black uppercase tracking-[0.4em] text-black mb-12 flex items-center gap-6">
-            <BarChart3 size={40} /> TERET PO STUBU LOJALNOSTI (BRUTO)
-          </h3>
-          <div className="flex-1 w-full">
-            <ResponsiveContainer width="100%" height={350}>
-              <BarChart data={loyaltyCostData} margin={{top: 20, right: 30, left: 60, bottom: 20}}>
-                <CartesianGrid strokeDasharray="10 10" vertical={false} stroke="#f1f5f9" />
-                <XAxis 
-                  dataKey="period" 
-                  fontSize={14} 
-                  fontWeight="900" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  dy={15} 
-                  stroke="#000"
-                />
-                <YAxis 
-                  fontSize={12} 
-                  fontWeight="700" 
-                  axisLine={false} 
-                  tickLine={false}
-                  tickFormatter={(val) => `${(val / 1000).toFixed(1)}k`}
-                />
-                <Tooltip 
-                  cursor={{fill: 'rgba(0,0,0,0.02)'}} 
-                  contentStyle={{ borderRadius: '2rem', border: '4px solid black', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', padding: '20px' }}
-                  formatter={(val: number) => [<LocalFormattedCurrency value={val} className="text-xl" />, 'Kumulativni Bruto']}
-                />
-                <Bar dataKey="iznos" radius={[20, 20, 0, 0]} barSize={120}>
-                  {loyaltyCostData.map((entry, index) => (
-                    <Cell key={`cell-loyalty-${index}`} fill={entry.boja} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-8 flex justify-center gap-10">
-            {loyaltyCostData.map((entry, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded-full" style={{backgroundColor: entry.boja}} />
-                <span className="text-xs font-black uppercase tracking-widest">{entry.period}</span>
+         {/* GROUP COSTS */}
+         <div className="grid grid-cols-2 gap-4 h-[500px]">
+            {stats.categorySummaries.map((catSum) => (
+              <div key={catSum.cat} className="p-6 rounded-[2rem] border-2 border-slate-100 bg-white hover:border-black transition-colors flex flex-col justify-between shadow-lg">
+                 <div>
+                   <div className="flex justify-between items-center mb-2">
+                      <span className="bg-black text-white w-8 h-8 flex items-center justify-center rounded-lg font-black">{catSum.cat}</span>
+                      <span className="text-xs font-bold text-slate-400">{catSum.count} ZAP.</span>
+                   </div>
+                   <h4 className="font-bold leading-tight text-sm uppercase">{catSum.label}</h4>
+                 </div>
+                 <div>
+                   <div className="text-2xl font-black tracking-tight">{formatKM(catSum.totalRaiseCostBruto)}</div>
+                   <div className="text-[10px] font-bold text-slate-300 uppercase mt-1">BRUTO TERET</div>
+                 </div>
               </div>
             ))}
-          </div>
-        </div>
+         </div>
       </div>
 
-      {/* FILTER DUGMADI ZA MATRICU */}
-      <div className="w-full mb-16 relative z-10">
-        <div className="bg-slate-50 border-8 border-black rounded-[4rem] p-12 flex flex-col gap-12 shadow-2xl">
-          
-          {/* Grupa 1: Kategorije */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-12 border-b-4 border-black/5 pb-10">
-            <div className="flex items-center gap-8">
-              <Filter size={48} className="text-black" />
-              <div className="flex flex-col">
-                <h3 className="text-3xl font-black uppercase tracking-widest leading-none">FILTRIRANJE KATEGORIJA</h3>
-                <p className="text-sm font-black text-slate-500 uppercase tracking-widest mt-2">Prikaz specifičnih departmana</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-8 w-full md:w-auto justify-end">
-              <button 
-                onClick={() => setActiveCatFilter('ALL')}
-                className={`flex-1 md:px-12 py-6 rounded-3xl font-black text-xl uppercase tracking-widest transition-all shadow-xl active:scale-95 ${activeCatFilter === 'ALL' ? 'bg-black text-white scale-105 ring-8 ring-slate-200' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
-              >
-                SVE KATEGORIJE
-              </button>
-              <button 
-                onClick={() => setActiveCatFilter('CD')}
-                className={`flex-1 md:px-12 py-6 rounded-3xl font-black text-xl uppercase tracking-widest transition-all shadow-xl active:scale-95 ${activeCatFilter === 'CD' ? 'bg-emerald-600 text-white scale-105 ring-8 ring-emerald-100' : 'bg-white text-emerald-600 border-4 border-emerald-600 hover:bg-emerald-50'}`}
-              >
-                SAMO C I D
-              </button>
-            </div>
-          </div>
-
-          {/* Grupa 2: Uprava i Odgajatelji (A&B) */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-12 border-b-4 border-black/5 pb-10">
-            <div className="flex items-center gap-8">
-              <LayoutGrid size={48} className="text-black" />
-              <div className="flex flex-col">
-                <h3 className="text-3xl font-black uppercase tracking-widest leading-none">UPRAVA I ODGAJATELJI (A&B)</h3>
-                <p className="text-sm font-black text-slate-500 uppercase tracking-widest mt-2">Strateško filtriranje kategorija A i B</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-8 w-full md:w-auto justify-end">
-              <button 
-                onClick={() => setActiveCatFilter('AB')}
-                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeCatFilter === 'AB' ? 'bg-black text-white scale-105 ring-4 ring-slate-200' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
-              >
-                SAMO A I B
-              </button>
-              <button 
-                onClick={() => setActiveCatFilter('CD')}
-                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeCatFilter === 'CD' ? 'bg-black text-white scale-105 ring-4 ring-red-400' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
-              >
-                SAKRIJ A I B
-              </button>
-            </div>
-          </div>
-
-          {/* Grupa 3: MA Status */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-12 border-b-4 border-black/5 pb-10">
-            <div className="flex items-center gap-8">
-              <GraduationCap size={48} className="text-black" />
-              <div className="flex flex-col">
-                <h3 className="text-3xl font-black uppercase tracking-widest leading-none">MA STATUS (EKSPERTIZA)</h3>
-                <p className="text-sm font-black text-slate-500 uppercase tracking-widest mt-2">Filtriranje po magistarskom zvanju</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-8 w-full md:w-auto justify-end">
-              <button 
-                onClick={() => setActiveMaFilter('ALL')}
-                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeMaFilter === 'ALL' ? 'bg-black text-white scale-105 ring-4 ring-slate-200' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
-              >
-                SVI STATUSI
-              </button>
-              <button 
-                onClick={() => setActiveMaFilter('MA_ONLY')}
-                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeMaFilter === 'MA_ONLY' ? 'bg-black text-white scale-105 ring-4 ring-emerald-400' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
-              >
-                SVE SA MA
-              </button>
-              <button 
-                onClick={() => setActiveMaFilter('NO_MA')}
-                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeMaFilter === 'NO_MA' ? 'bg-black text-white scale-105 ring-4 ring-red-400' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
-              >
-                SAMO BEZ MA
-              </button>
-            </div>
-          </div>
-
-          {/* Grupa 4: Godina početka rada */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-12 pt-4">
-            <div className="flex items-center gap-8">
-              <CalendarDays size={48} className="text-black" />
-              <div className="flex flex-col">
-                <h3 className="text-3xl font-black uppercase tracking-widest leading-none">GODINA POČETKA RADA</h3>
-                <p className="text-sm font-black text-slate-500 uppercase tracking-widest mt-2">Filtriranje po stažu (prije/poslije 2020.)</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-8 w-full md:w-auto justify-end">
-              <button 
-                onClick={() => setActiveYearFilter('ALL')}
-                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeYearFilter === 'ALL' ? 'bg-black text-white scale-105 ring-4 ring-slate-200' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
-              >
-                SVE GODINE
-              </button>
-              <button 
-                onClick={() => setActiveYearFilter('BEFORE_2020')}
-                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeYearFilter === 'BEFORE_2020' ? 'bg-black text-white scale-105 ring-4 ring-emerald-400' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
-              >
-                PRIJE 2020.
-              </button>
-              <button 
-                onClick={() => setActiveYearFilter('AFTER_2020')}
-                className={`flex-1 md:px-10 py-5 rounded-[2rem] font-black text-lg uppercase tracking-widest transition-all shadow-lg active:scale-95 ${activeYearFilter === 'AFTER_2020' ? 'bg-black text-white scale-105 ring-4 ring-indigo-400' : 'bg-white text-black border-4 border-black hover:bg-slate-100'}`}
-              >
-                POSLIJE 2020.
-              </button>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* MODAL IZVJEŠTAJA */}
+      {/* REPORT MODAL (PRINT READY) */}
       <AnimatePresence>
         {isReportOpen && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={toggleReport} className="absolute inset-0 bg-black/95 backdrop-blur-3xl" />
+          <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/90 p-0 md:p-8 print:p-0 print:bg-white print:static print:block">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 100 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 100 }}
-              className="relative w-full max-w-none mx-4 lg:mx-12 bg-white text-black rounded-[5rem] overflow-y-auto p-20 md:p-32 shadow-2xl max-h-[95vh] font-serif border-[20px] border-black"
+              initial={{ opacity: 0, y: 50 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              exit={{ opacity: 0, y: 50 }}
+              className="bg-white w-full max-w-5xl min-h-screen md:min-h-0 md:rounded-[3rem] p-12 md:p-20 shadow-2xl relative print:shadow-none print:w-full print:max-w-none print:p-0"
             >
-              <button onClick={toggleReport} className="absolute top-16 right-16 text-slate-300 hover:text-black transition-colors no-print">
-                <X size={80} />
+              <button onClick={toggleReport} className="absolute top-8 right-8 p-4 bg-slate-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors no-print">
+                <X size={24} />
               </button>
-              
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-16 mb-32 border-b-[12px] border-black pb-20">
-                <img src="https://i.postimg.cc/MZ4w91zf/imh-logo.png" alt="Logo" className="h-32" />
-                <div className="text-right font-sans">
-                  <div className="text-2xl font-black uppercase tracking-[0.6em] text-emerald-700">STRATEGIJA 2026</div>
-                  <div className="text-slate-400 font-mono text-lg uppercase font-bold mt-4">POVJERLJIVO | DOKUMENT REVIZIJE: FINAL-X</div>
-                </div>
+
+              {/* REPORT HEADER */}
+              <div className="flex justify-between items-end border-b-8 border-black pb-8 mb-16">
+                 <div>
+                    <img src="https://i.postimg.cc/MZ4w91zf/imh-logo.png" alt="IMH" className="h-24 mb-6" />
+                    <div className="text-4xl font-black uppercase tracking-tighter">Strategija 2026</div>
+                    <div className="text-sm font-bold uppercase tracking-[0.4em] text-slate-500 mt-2">Službeni Dokument Revizije</div>
+                 </div>
+                 <div className="text-right hidden sm:block">
+                    <div className="text-xs font-bold uppercase text-slate-400">DATUM GENERISANJA</div>
+                    <div className="font-mono font-bold text-lg">{new Date().toLocaleDateString('bs-BA')}</div>
+                 </div>
               </div>
 
-              <div className="space-y-32">
-                <h2 className="text-7xl md:text-[12rem] font-black leading-none tracking-tighter text-black uppercase mb-12">
-                  FISKALNA<br/>ODRŽIVOST
-                </h2>
+              {/* REPORT CONTENT */}
+              <div className="space-y-16">
+                 <section>
+                    <h2 className="text-2xl font-black uppercase tracking-[0.2em] mb-6 flex items-center gap-4">
+                       <span className="bg-black text-white w-10 h-10 flex items-center justify-center rounded-full text-lg">1</span>
+                       Institucionalni Mir
+                    </h2>
+                    
+                    {/* DYNAMIC NARRATIVE LOGIC */}
+                    {stats.isSustainable ? (
+                        <p className="text-xl md:text-2xl font-medium leading-relaxed text-slate-800 text-justify">
+                            Ovaj dokument potvrđuje punu finansijsku održivost tranzicije uz korekciju školarine od <span className="font-black bg-black text-white px-2">{tuitionIncrease}%</span>. Model 'Matematičke Pravednosti' uspješno apsorbuje bruto teret povišica, osiguravajući stabilan operativni suficit.
+                        </p>
+                    ) : (
+                        <p className="text-xl md:text-2xl font-medium leading-relaxed text-slate-800 text-justify">
+                            Ovaj dokument ukazuje na finansijsku neodrživost tranzicije uz trenutnu korekciju školarine od <span className="font-black bg-black text-white px-2">{tuitionIncrease}%</span>. Projekcija potvrđuje da mjesečni bruto teret povišica premašuje prirast prihoda, što zahtijeva hitnu reviziju modela.
+                        </p>
+                    )}
+                 </section>
 
-                <section className="space-y-16">
-                  <h4 className="text-3xl font-black uppercase tracking-[0.4em] text-black flex items-center gap-10 font-sans">
-                    <div className="w-20 h-20 bg-black flex items-center justify-center text-white rounded-full text-4xl">1</div>
-                    MISIJA I INSTITUCIONALNI MIR
-                  </h4>
-                  <p className="text-4xl md:text-6xl leading-tight text-black font-medium">
-                    Ovim dokumentom se definira implementacija <span className="font-black italic underline decoration-8">Strategije 2026</span>, strateškog okvira čiji je primarni cilj uspostavljanje dugoročnog institucionalnog mira i potpuna eliminacija subjektivnosti u sistemu nagrađivanja. Model "Matematičke pravednosti" garantira da svaki član kolektiva bude vrijednovan isključivo kroz objektivne i mjerljive faktore rasta.
-                  </p>
-                </section>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-20">
-                  <div className="bg-slate-50 p-24 rounded-[5rem] space-y-12 border-8 border-black shadow-2xl">
-                    <h4 className="text-2xl font-black uppercase tracking-widest text-emerald-700 flex items-center gap-8 font-sans"><Zap size={48} /> II. STUB LOJALNOSTI</h4>
-                    <p className="text-3xl text-black leading-relaxed italic font-medium">
-                      Lojalnost je temelj institucionalne memorije IMH-a. Sistem povišica do <span className="font-black">15% za deceniju posvećenosti</span> nije samo finansijska stavka, već duboko priznanje za godine rada na izgradnji vizije.
-                    </p>
-                  </div>
-                  <div className="bg-slate-50 p-24 rounded-[5rem] space-y-12 border-8 border-black shadow-2xl">
-                    <h4 className="text-2xl font-black uppercase tracking-widest text-black flex items-center gap-8 font-sans"><Award size={48} /> III. STUB EKSPERTIZE</h4>
-                    <p className="text-3xl text-black leading-relaxed italic font-medium">
-                      Kontinuirano akademsko usavršavanje kroz <span className="font-black">dodatak od 5% za Magistarski stepen (MA)</span> osigurava elitni standard naših usluga i potiče vrhunsku stručnost tima.
-                    </p>
-                  </div>
-                </div>
-
-                <section className="p-32 bg-emerald-50 rounded-[6rem] border-[16px] border-emerald-600 shadow-inner">
-                  <h4 className="text-3xl font-black uppercase tracking-widest text-emerald-800 flex items-center gap-10 mb-20 font-sans"><FileCheck size={64} /> IV. STRATEŠKI ŠTIT I SAMOODRŽIVOST</h4>
-                  <div className="space-y-24">
-                    <p className="text-4xl md:text-6xl leading-tight text-emerald-900 font-bold">
-                      Planirana korekcija školarine od <span className="font-black underline decoration-[12px]">{tuitionIncrease}%</span> predstavlja ključni strateški štit. Ova mjera omogućava Ustanovi da apsorbira bruto teret povišica od <span className="font-black"><LocalFormattedCurrency value={totals.totalBrutoCost} /></span> mjesečno.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-20 font-sans">
-                      <div className="text-center p-12">
-                        <div className="text-xl uppercase font-black text-emerald-700 mb-8 tracking-[0.2em]">PRIRAST PRIHODA</div>
-                        <LocalFormattedCurrency value={stats.dodatniPrihod} className="text-7xl font-black text-emerald-800" />
-                      </div>
-                      <div className="text-center p-12">
-                        <div className="text-xl uppercase font-black text-red-700 mb-8 tracking-[0.2em]">BRUTO GODIŠNJI TERET</div>
-                        <div className="text-7xl font-mono font-black text-red-600">
-                          -<LocalFormattedCurrency value={totals.totalBrutoCost * 12} />
-                        </div>
-                      </div>
-                      <div className="text-center p-20 bg-white rounded-[4rem] shadow-2xl border-8 border-emerald-600 scale-110">
-                        <div className="text-xl uppercase font-black text-emerald-800 mb-8 tracking-[0.2em]">OPERATIVNI SUFICIT</div>
-                        <LocalFormattedCurrency value={stats.cistaDobit} className="text-8xl font-black text-black" />
-                      </div>
+                 <section className="grid grid-cols-1 md:grid-cols-2 gap-12 print:grid-cols-2">
+                    <div className="bg-slate-50 p-8 rounded-3xl border-2 border-black print:border">
+                       <div className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">MJESEČNI BRUTO TERET</div>
+                       <div className="text-5xl font-black text-black mb-2">{formatKM(globalTotals.totalBrutoCost)}</div>
+                       <div className="text-xs font-bold text-red-500">PROJEKCIJA TROŠKA POVIŠICA</div>
                     </div>
-                  </div>
-                </section>
+                    <div className={`p-8 rounded-3xl border-2 border-black print:border ${stats.isSustainable ? 'bg-emerald-50' : 'bg-red-50'}`}>
+                       <div className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">OPERATIVNI REZULTAT</div>
+                       <div className={`text-5xl font-black mb-2 ${stats.isSustainable ? 'text-emerald-700' : 'text-red-700'}`}>{formatKM(stats.cistaDobit)}</div>
+                       <div className="text-xs font-bold uppercase">{stats.isSustainable ? 'SUFICIT (ODRŽIVO)' : 'DEFICIT (NEODRŽIVO)'}</div>
+                    </div>
+                 </section>
 
-                <section className="pt-32 border-t-[16px] border-black">
-                  <div className="flex items-center gap-12 mb-16">
-                    <CheckCircle2 size={100} className="text-emerald-600" />
-                    <h4 className="text-6xl font-black text-black uppercase tracking-tighter font-sans">FINALNI ZAKLJUČAK</h4>
-                  </div>
-                  <p className="text-5xl md:text-8xl font-black text-black leading-none uppercase italic">
-                    "MODEL JE <span className="text-emerald-600 underline decoration-[20px]">FISKALNO SAMOODRŽIV</span>. OMOGUĆAVA REKORDNO POVEĆANJE PLATA UZ ISTOVREMENO JAČANJE PROFITNE MARŽE USTANOVE."
-                  </p>
-                </section>
-
-                <div className="pt-64 flex justify-between items-end gap-48 no-print font-sans">
-                   <div className="flex-1 text-center border-t-8 border-black pt-16">
-                      <div className="text-3xl uppercase font-black text-black tracking-[0.6em] mb-8">UPRAVA USTANOVE</div>
-                      <div className="text-xl text-slate-400 font-bold uppercase tracking-widest">DIGITALNO POTPISANO: IMH-ADMIN-CHIEF</div>
-                   </div>
-                   <div className="flex-1 text-center border-t-8 border-black pt-16">
-                      <div className="text-3xl uppercase font-black text-black tracking-[0.6em] mb-8">OSNIVAČ / VLASNIK</div>
-                      <div className="text-xl text-slate-400 font-bold uppercase tracking-widest">ODOBRENO ZA HITNU IMPLEMENTACIJU</div>
-                   </div>
-                </div>
+                 <section className="print:break-inside-avoid">
+                    <h2 className="text-2xl font-black uppercase tracking-[0.2em] mb-6 flex items-center gap-4">
+                       <span className="bg-black text-white w-10 h-10 flex items-center justify-center rounded-full text-lg">2</span>
+                       Verifikacija Parametara
+                    </h2>
+                    <table className="w-full text-sm text-left border-t-2 border-black">
+                       <thead className="bg-slate-100 font-black uppercase">
+                          <tr>
+                             <th className="p-4">Parametar</th>
+                             <th className="p-4 text-right">Vrijednost</th>
+                             <th className="p-4 text-right">Status</th>
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-slate-200 font-bold">
+                          <tr>
+                             <td className="p-4">Faktor Bruto Plate</td>
+                             <td className="p-4 text-right font-mono">1.63</td>
+                             <td className="p-4 text-right text-emerald-600">VERIFIKOVANO</td>
+                          </tr>
+                          <tr>
+                             <td className="p-4">Prirast Školarine</td>
+                             <td className="p-4 text-right font-mono">+{tuitionIncrease}%</td>
+                             <td className="p-4 text-right text-emerald-600">AKTIVNO</td>
+                          </tr>
+                          <tr>
+                             <td className="p-4">Ukupno Zaposlenika</td>
+                             <td className="p-4 text-right font-mono">{employees.length}</td>
+                             <td className="p-4 text-right text-emerald-600">KOMPLETNO</td>
+                          </tr>
+                       </tbody>
+                    </table>
+                 </section>
               </div>
 
-              <div className="mt-48 flex flex-col md:flex-row gap-12 no-print font-sans pb-32">
-                <button 
-                  onClick={() => window.print()} 
-                  className="flex-1 py-12 bg-black text-white rounded-[3rem] font-black text-4xl uppercase tracking-[0.3em] flex items-center justify-center gap-8 shadow-2xl hover:bg-slate-800 transition-all active:scale-95"
-                >
-                  <Printer size={64} /> ISPRINTAJ SLUŽBENI DOKUMENT
-                </button>
-                <button 
-                  onClick={toggleReport}
-                  className="px-32 py-12 border-[12px] border-black text-black rounded-[3rem] font-black text-4xl uppercase tracking-[0.3em] hover:bg-red-600 hover:text-white hover:border-red-600 transition-all active:scale-95"
-                >
-                  ZATVORI
-                </button>
+              {/* FOOTER / SIGNATURES */}
+              <div className="mt-24 pt-12 border-t-4 border-black grid grid-cols-2 gap-20 print:mt-12">
+                 <div className="text-center">
+                    <div className="h-16 border-b-2 border-slate-300 mb-4"></div>
+                    <div className="font-black uppercase tracking-widest">DIREKTOR USTANOVE</div>
+                 </div>
+                 <div className="text-center">
+                    <div className="h-16 border-b-2 border-slate-300 mb-4"></div>
+                    <div className="font-black uppercase tracking-widest">PREDSJEDNIK UPRAVNOG ODBORA</div>
+                 </div>
               </div>
+
+              {/* ACTIONS */}
+              <div className="mt-12 flex gap-4 no-print">
+                 <button onClick={() => window.print()} className="flex-1 bg-black text-white py-6 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 flex items-center justify-center gap-2">
+                    <Printer /> Printaj Dokument
+                 </button>
+                 <button onClick={toggleReport} className="flex-1 bg-slate-100 text-black py-6 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-200">
+                    Zatvori Pregled
+                 </button>
+              </div>
+
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
       {/* FOOTER */}
-      <footer className="w-full py-24 mt-24 border-t-8 border-black flex flex-col items-center gap-12 opacity-50 select-none no-print">
-        <img src="https://i.postimg.cc/MZ4w91zf/imh-logo.png" alt="Footer Logo" className="h-20 grayscale" />
-        <div className="text-lg font-black uppercase tracking-[1em] text-black">
-          © 2026 INTERNATIONAL MONTESSORI HOUSE • SARAJEVO
-        </div>
+      <footer className="w-full py-12 text-center opacity-40 hover:opacity-100 transition-opacity no-print">
+         <div className="flex items-center justify-center gap-2 mb-2">
+            <Lock size={12} />
+            <span className="text-xs font-bold uppercase tracking-widest">SECURE SYSTEM ACTIVE</span>
+         </div>
+         <p className="text-[10px] uppercase font-bold tracking-[0.2em]">© 2026 International Montessori House • Sarajevo</p>
       </footer>
+
     </div>
   );
 };
