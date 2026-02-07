@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Printer } from 'lucide-react';
@@ -23,22 +22,22 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   employees
 }) => {
   
-  const handlePrint = () => {
-    window.print();
-  };
-
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/90 p-0 md:p-8 print:p-0 print:bg-white print:static print:block">
+        <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-black/90 p-0 md:p-8 print:p-0 print:bg-white print:static print:block pointer-events-auto">
           <motion.div 
-            id="report-content" /* KLJUČNO ZA CSS IZOLACIJU ŠTAMPE */
+            id="report-content"
             initial={{ opacity: 0, y: 50 }} 
             animate={{ opacity: 1, y: 0 }} 
             exit={{ opacity: 0, y: 50 }}
-            className="bg-white w-full max-w-5xl min-h-screen md:min-h-0 md:rounded-[3rem] p-12 md:p-20 shadow-2xl relative print:shadow-none print:w-full print:max-w-none print:p-0"
+            style={{ border: '2px solid red' }} /* DIJAGNOSTIČKI OKVIR: KONTROLA GRANICA MODALA */
+            className="print-container bg-white w-full max-w-5xl min-h-screen md:min-h-0 md:rounded-[3rem] p-12 md:p-20 shadow-2xl relative z-50 pointer-events-auto print:shadow-none print:w-full print:max-w-none print:p-0 print:border-none"
           >
-            <button onClick={onClose} className="absolute top-8 right-8 p-4 bg-slate-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors no-print">
+            <button 
+                onClick={onClose} 
+                className="absolute top-8 right-8 p-4 bg-slate-100 rounded-full hover:bg-red-50 hover:text-red-500 transition-colors no-print z-50 cursor-pointer"
+            >
               <X size={24} />
             </button>
 
@@ -166,11 +165,29 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             </div>
 
             {/* ACTIONS */}
-            <div className="mt-12 flex gap-4 no-print">
-               <button onClick={handlePrint} className="flex-1 bg-black text-white py-6 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 flex items-center justify-center gap-2">
+            <div className="mt-12 flex gap-4 no-print relative z-[60]">
+               <button 
+                 type="button"
+                 style={{ 
+                   position: 'relative', 
+                   zIndex: 9999, 
+                   pointerEvents: 'auto',
+                   border: '2px solid blue' /* DIJAGNOSTIČKI OKVIR: KONTROLA DUGMETA */
+                 }}
+                 onClick={(e) => {
+                   e.preventDefault();
+                   e.stopPropagation();
+                   console.log("Dugme je primilo klik!");
+                   window.print();
+                 }}
+                 className="flex-1 bg-black text-white py-6 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-800 flex items-center justify-center gap-2 shadow-xl active:scale-95 transition-transform"
+               >
                   <Printer /> Printaj Dokument
                </button>
-               <button onClick={onClose} className="flex-1 bg-slate-100 text-black py-6 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-200">
+               <button 
+                 onClick={onClose} 
+                 className="flex-1 bg-slate-100 text-black py-6 rounded-2xl font-black uppercase tracking-widest hover:bg-slate-200 relative z-[60] cursor-pointer pointer-events-auto"
+               >
                   Zatvori Pregled
                </button>
             </div>

@@ -47,12 +47,12 @@
             }
             
             /* 2. Učini vidljivim samo kontejner izvještaja i njegovu djecu */
-            #report-content, #report-content * {
+            .print-container, .print-container * {
                 visibility: visible;
             }
             
             /* 3. Pozicioniraj izvještaj na vrh stranice, preko svega */
-            #report-content {
+            .print-container {
                 position: absolute;
                 left: 0;
                 top: 0;
@@ -65,6 +65,9 @@
                 border: none !important;
                 min-height: auto !important; /* Override screen height constraints */
                 border-radius: 0 !important;
+                /* KRITIČNO ZA FRAMER MOTION: Poništi transformacije koje mogu sakriti element na printu */
+                transform: none !important;
+                opacity: 1 !important;
             }
 
             /* 4. Eksplicitno sakrij elemente označene sa no-print unutar izvještaja (dugmad) */
